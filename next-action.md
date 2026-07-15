@@ -13,7 +13,7 @@
 
 ## 第2段階: PostgreSQL接続とマイグレーション
 
-- [ ] Docker Desktopをインストール、またはDockerコマンドを利用可能にする
+- [x] Docker Desktopをインストールし、Docker EngineとDocker Composeの起動を確認する
 - [ ] Docker ComposeでPostgreSQLを起動する構成を検討する
 - [ ] SQLAlchemy 2.xのDB接続を作成する
 - [ ] Alembicを導入する
