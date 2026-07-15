@@ -14,8 +14,12 @@
 ## 第2段階: PostgreSQL接続とマイグレーション
 
 - [x] Docker Desktopをインストールし、Docker EngineとDocker Composeの起動を確認する
-- [ ] Docker ComposeでPostgreSQLを起動する構成を検討する
+- [x] PostgreSQL 18を起動するCompose構成を作成する
+- [x] `.env`をGitの管理対象から除外し、`.env.example`を用意する
+- [x] 名前付きボリュームでPostgreSQLのデータを永続化する
+- [x] ヘルスチェックが成功することを確認する
+- [x] `reservation_app`で`reservation_db`へSQL接続できることを確認する
 - [ ] SQLAlchemy 2.xのDB接続を作成する
 - [ ] Alembicを導入する
 
-第2段階は、第1段階の動作確認と設計説明が終わってから開始します。
+次は、SQLAlchemy 2.xの接続構成とDBセッションの役割を整理してから実装します。
