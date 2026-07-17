@@ -20,7 +20,9 @@
 - [x] 名前付きボリュームでPostgreSQLのデータを永続化する
 - [x] ヘルスチェックが成功することを確認する
 - [x] `reservation_app`で`reservation_db`へSQL接続できることを確認する
+- [x] 基礎から同時実行対策までの学習用教科書を作成する
+- [x] SQLAlchemy、Pydantic Settings、psycopgの依存関係を`requirements.txt`へ追加する
 - [ ] SQLAlchemy 2.xのDB接続を作成する
 - [ ] Alembicを導入する
 
-次は、SQLAlchemy 2.xの接続構成とDBセッションの役割を整理してから実装します。
+次は、`docs/backend-api-textbook.md`の第3章と第5章を読み、`app/config.py`の設定項目表を作ってから実装します。`config.py`のレビューが終わるまでは、`database.py`へ進みません。
