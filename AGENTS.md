@@ -72,7 +72,7 @@ FastAPIを使用したレストラン予約APIを、バックエンド開発と�
 - Alembic
 - PostgreSQL
 - pytest
-- httpx
+- httpx2
 - DockerおよびDocker Compose
 - Ruff
 - mypyまたはpyright
