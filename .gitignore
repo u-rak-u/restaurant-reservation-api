@@ -2,8 +2,17 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
 .venv/
 .env
+.env.*
+!.env.example
 .coverage
+.coverage.*
 htmlcov/
+build/
+dist/
 .vscode/
+.idea/

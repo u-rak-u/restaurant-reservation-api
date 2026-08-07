@@ -1,4 +1,4 @@
-# Next Action
+# 進捗と次の作業
 
 ## 第1段階: 最小FastAPI環境
 
@@ -21,7 +21,7 @@
 - [x] ヘルスチェックが成功することを確認する
 - [x] `reservation_app`で`reservation_db`へSQL接続できることを確認する
 - [x] 基礎から同時実行対策までの学習用教科書を作成する
-- [x] SQLAlchemy、Pydantic Settings、psycopgの依存関係を`requirements.txt`へ追加する
+- [ ] SQLAlchemy、Pydantic Settings、psycopgの依存関係を`requirements.txt`へ追加する
 - [ ] SQLAlchemy 2.xのDB接続を作成する
 - [ ] Alembicを導入する
 
