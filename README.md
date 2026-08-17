@@ -6,6 +6,7 @@
 
 - [バックエンド開発教科書](docs/backend-api-textbook.md)
 - [要件定義](docs/requirements.md)
+- [ドメインモデル](docs/domain_model.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 
