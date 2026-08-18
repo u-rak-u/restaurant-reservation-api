@@ -7,6 +7,7 @@
 - [バックエンド開発教科書](docs/backend-api-textbook.md)
 - [要件定義](docs/requirements.md)
 - [ドメインモデル](docs/domain_model.md)
+- [予約なし利用追加による要件影響の再確認](docs/walk_in_impact_review.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 
@@ -14,7 +15,7 @@
 
 ## 現在の実装範囲
 
-第1段階のFastAPI最小アプリとヘルスチェック、第2段階前半のDocker ComposeによるPostgreSQL環境、およびMVPの要件定義まで完了しています。現在は、確定した要件からドメインモデルとデータベースを設計する段階です。
+第1段階のFastAPI最小アプリとヘルスチェック、第2段階前半のDocker ComposeによるPostgreSQL環境まで完了しています。現在は、予約なし利用をMVPへ追加した影響を確認し、関連要件を再確定する段階です。
 
 ## 必要な環境
 
