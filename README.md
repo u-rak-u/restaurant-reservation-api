@@ -9,6 +9,7 @@
 - [ドメインモデル](docs/domain_model.md)
 - [予約なし利用追加による要件影響の再確認](docs/walk_in_impact_review.md)
 - [ADR-0001: 席配置計画を世代付きで保存する](docs/adr/0001-seat-placement-plan-versioning.md)
+- [ADR-0002: 電話番号照合に鍵付きハッシュを使用する](docs/adr/0002-phone-number-matching.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 
@@ -16,7 +17,7 @@
 
 ## 現在の実装範囲
 
-第1段階のFastAPI最小アプリとヘルスチェック、第2段階前半のDocker ComposeによるPostgreSQL環境まで完了しています。予約なし利用を含む要件定義とMVP範囲の再確定が完了し、現在はドメインモデルとデータベース設計を具体化する段階です。
+第1段階のFastAPI最小アプリとヘルスチェック、第2段階前半のDocker ComposeによるPostgreSQL環境まで完了しています。予約なし利用を含む要件定義とドメインモデルの確定が完了し、現在はデータベース設計を具体化する段階です。
 
 ## 必要な環境
 
