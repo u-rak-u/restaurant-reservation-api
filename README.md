@@ -8,6 +8,7 @@
 - [要件定義](docs/requirements.md)
 - [ドメインモデル](docs/domain_model.md)
 - [予約なし利用追加による要件影響の再確認](docs/walk_in_impact_review.md)
+- [ADR-0001: 席配置計画を世代付きで保存する](docs/adr/0001-seat-placement-plan-versioning.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 
