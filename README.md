@@ -49,12 +49,13 @@ Copy-Item .env.example .env
 Docker Desktopを起動した状態で、Compose設定と必須環境変数を確認してからPostgreSQLを起動します。
 
 ```powershell
-docker compose config
+docker compose config --quiet
 docker compose up -d
 docker compose ps
+.\scripts\test-db-connection.ps1
 ```
 
-データベースコンテナの状態が `healthy` になることを確認してください。
+データベースコンテナの状態が `healthy` になり、接続確認で `Database connection check: OK` と表示されることを確認してください。接続確認スクリプトは `.env` のパスワード、接続文字列、環境変数一覧を出力しません。Windows PowerShell 5でもBOMなしUTF-8のスクリプトを誤解析しないよう、スクリプト自身のメッセージはASCIIで出力します。
 
 ## 起動
 
