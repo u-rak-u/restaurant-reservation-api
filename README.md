@@ -7,9 +7,11 @@
 - [バックエンド開発教科書](docs/backend-api-textbook.md)
 - [要件定義](docs/requirements.md)
 - [ドメインモデル](docs/domain_model.md)
+- [データベース設計](docs/database_design.md)
 - [予約なし利用追加による要件影響の再確認](docs/walk_in_impact_review.md)
 - [ADR-0001: 席配置計画を世代付きで保存する](docs/adr/0001-seat-placement-plan-versioning.md)
 - [ADR-0002: 電話番号照合に鍵付きハッシュを使用する](docs/adr/0002-phone-number-matching.md)
+- [ADR-0003: 内部主キーにUUIDv7を使用する](docs/adr/0003-uuidv7-primary-keys.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 
