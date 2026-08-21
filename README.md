@@ -14,6 +14,7 @@
 - [ADR-0003: 内部主キーにUUIDv7を使用する](docs/adr/0003-uuidv7-primary-keys.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
+- [直近の詳細な作業](next-action.md)
 
 基礎から予約重複の同時実行対策までを一冊にまとめています。完成コードを写すのではなく、別題材の例を店舗予約APIへ応用する形で進めます。学習用ドキュメントは確定仕様ではなく、今後作成する要件定義、設計文書、ADRを正式な判断基準とします。
 
