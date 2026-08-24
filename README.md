@@ -19,6 +19,7 @@
 - [ADR-0008: 予約資格情報を分離して終了時に削除する](docs/adr/0008-reservation-credentials-lifecycle.md)
 - [ADR-0009: 共通予約の種別・状態・ライフサイクル日時](docs/adr/0009-reservation-common-columns.md)
 - [ADR-0010: 通常予約の人数・予約期間・顧客コメント](docs/adr/0010-regular-reservation-details.md)
+- [ADR-0011: 貸切予約のイベント時間・準備片付け時間・参加人数](docs/adr/0011-exclusive-reservation-details.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
