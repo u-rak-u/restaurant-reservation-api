@@ -17,6 +17,7 @@
 - [ADR-0006: 店舗の識別・タイムゾーン・初期データ方針](docs/adr/0006-store-identity-timezone-and-bootstrap.md)
 - [ADR-0007: 共通予約と種別詳細を分割する](docs/adr/0007-reservation-subtype-tables.md)
 - [ADR-0008: 予約資格情報を分離して終了時に削除する](docs/adr/0008-reservation-credentials-lifecycle.md)
+- [ADR-0009: 共通予約の種別・状態・ライフサイクル日時](docs/adr/0009-reservation-common-columns.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)

@@ -188,7 +188,79 @@ UUIDv7は連番IDのように隣接値から別レコードを列挙できず、
 
 この方針の背景、代替案、実用性は `docs/adr/0008-reservation-credentials-lifecycle.md` を正とする。
 
-## 7. 次に設計する範囲
+## 7. 共通予約
+
+### 7.1 `reservations` テーブル
+
+| 列 | PostgreSQL型 | NULL | 初期値・制約 | 用途 |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | 不可 | 主キー、`DEFAULT uuidv7()` | 内部識別子 |
+| `store_id` | `uuid` | 不可 | `stores.id` への外部キー | 所属店舗 |
+| `reservation_number` | `text` | 不可 | 10桁形式と一意範囲はDB-11で確定 | 顧客向け予約番号 |
+| `reservation_type` | `text` | 不可 | `regular`、`exclusive` のCHECK | 通常予約または貸切予約 |
+| `status` | `text` | 不可 | `DEFAULT 'confirmed'`、定義済み5状態のCHECK | 現在の基本状態 |
+| `contact_name` | `text` | 可 | 値がある場合は前後の空白を除いて1文字以上100文字以下 | 通常予約者または貸切代表者の氏名 |
+| `contact_phone_e164` | `text` | 可 | 値がある場合はE.164形式 | 予約時点の連絡先電話番号 |
+| `created_at` | `timestamp with time zone` | 不可 | サーバー側で設定、不変 | 予約成立日時と訂正猶予の基準 |
+| `updated_at` | `timestamp with time zone` | 不可 | サーバー側で更新 | 現在行の最終更新日時 |
+| `checked_in_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | 有効な来店確認日時 |
+| `completed_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | 利用完了日時 |
+| `cancelled_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | キャンセル確定日時 |
+| `no_show_confirmed_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | 無断キャンセル確定日時 |
+| `cancellation_initiator` | `text` | 可 | `customer`、`store` のCHECK | キャンセル主体 |
+| `cancellation_reason` | `text` | 可 | 値がある場合は前後の空白を除いて1文字以上500文字以下 | キャンセル理由 |
+
+- 予約種別と基本状態は店舗が追加・編集するマスターではないため、マスターテーブルを作らず `text` とCHECK制約で表す。アプリケーションでは対応するPython Enumを使用する。
+- `reservation_type` は作成後に通常操作で変更せず、DBの更新トリガーでも変更を拒否する。種別を誤った場合は既存予約を別種別へ変換せず、権限と締切に従って取消後に正しい予約を作成する。
+- 予約番号の形式、店舗単位または全体での一意性、衝突再試行はDB-11で確定する。
+- 貸切の会社・団体名は `exclusive_reservation_details` に置き、代表者名だけを共通の `contact_name` に置く。
+- 予約時の人数と実際の来店人数、予約対象時間、顧客コメントは種別詳細に置く。
+- `created_at`、`updated_at`、状態変更日時は、クライアントから受け取った日時ではなくDBサーバーの現在日時を使用する。実装時はINSERTまたは状態変更を行う文の開始時刻を使用し、タイムゾーン付きで保存する。
+- `created_at` は予約完了後10分の訂正猶予の基準であり、更新時に変更しない。`updated_at` を訂正猶予の判定に使用しない。
+- `updated_at` は現在行を変更する同じトランザクションで更新する。楽観的ロック用の版番号はDB-48で別に検討する。
+- 営業日は保存済みルールから求める計算結果であり、`reservations` へ営業日列を重複保存しない。
+
+### 7.2 予約者連絡先と匿名化
+
+- 予約作成時と `confirmed`、`checked_in` の間は、`contact_name` と `contact_phone_e164` を両方必須とする。
+- `contact_phone_e164` は `+`、0以外から始まる国番号、合計15桁以下の数字からなるE.164形式だけを許可する。
+- 2列は両方に値があるか、両方ともNULLでなければならず、片方だけを残さない。
+- 終了状態では保持期限まで2列を保持でき、予約終了から1年後に両方をNULLへ更新できる。NULL許可は入力省略のためではなく、確定済みの個人情報削除方針を実行するために使用する。
+- 個人情報削除予定日時、削除ジョブ、予約行全体の最終削除単位はDB-44で確定する。
+
+### 7.3 状態とライフサイクル日時
+
+`status` は `confirmed`、`checked_in`、`completed`、`cancelled`、`no_show` のいずれかとし、次の組み合わせ以外をCHECK制約で拒否する。
+
+| 状態 | 必須 | NULLでなければならない列 |
+| --- | --- | --- |
+| `confirmed` | なし | `checked_in_at`、`completed_at`、`cancelled_at`、`no_show_confirmed_at`、取消情報 |
+| `checked_in` | `checked_in_at` | `completed_at`、`cancelled_at`、`no_show_confirmed_at`、取消情報 |
+| `completed` | `checked_in_at`、`completed_at` | `cancelled_at`、`no_show_confirmed_at`、取消情報 |
+| `cancelled` | `cancelled_at`、`cancellation_initiator`、`cancellation_reason` | `checked_in_at`、`completed_at`、`no_show_confirmed_at` |
+| `no_show` | `no_show_confirmed_at` | `checked_in_at`、`completed_at`、`cancelled_at`、取消情報 |
+
+- `created_at <= updated_at` を必須とする。
+- 値がある各状態変更日時は `created_at` 以後かつ `updated_at` 以前とする。
+- `completed_at` は `checked_in_at` 以後とする。
+- キャンセルを電話で受けたスタッフや店舗都合キャンセルを実行したスタッフは、予約本体のキャンセル主体とは分け、監査記録の操作主体としてDB-40で設計する。
+- 通常の顧客都合、店舗都合のどちらでも理由を必須とする。オンライン訂正猶予による取消ではアプリケーションが定義済みの理由を記録する。
+- CHECK制約は現在状態と現在値の整合性を守る。状態遷移は任意の状態更新APIではなく、来店確認、利用完了、取消、無断キャンセル確定の専用処理で実行する。
+- 来店訂正の承認では元の操作を監査・訂正記録へ残し、予約本体を有効な現在状態と日時の組み合わせへ更新する。例外案件との横断制約はDB-37からDB-40で設計する。
+
+### 7.4 実装時に必要な検証
+
+- 予約種別、状態、キャンセル主体へ未定義値を保存できない。
+- 予約種別を作成後に変更できない。
+- 状態と必須日時、NULLであるべき日時、取消情報が矛盾する行を保存できない。
+- `created_at` を更新してオンライン取消猶予を延長できない。
+- 有効な予約では予約者名と電話番号を省略できず、保持期限後の終了予約では両方を削除できる。
+- API入力の日時またはクライアント端末の時計によって、作成日時と状態変更日時を指定できない。
+- 設計済みの通常状態遷移と、承認済み例外案件による訂正だけがアプリケーションサービスから実行される。
+
+この方針の背景、代替案、実用性は `docs/adr/0009-reservation-common-columns.md` を正とする。
+
+## 8. 次に設計する範囲
 
 1. 店舗、予約、通常予約詳細、貸切予約詳細、資格情報、無断キャンセル電話照合
 2. スタッフアカウントと当日運用責任者任命
@@ -198,4 +270,4 @@ UUIDv7は連番IDのように隣接値から別レコードを列挙できず、
 6. 例外案件、監査、削除保留、定期削除実行
 7. 横断的な競合制御、冪等性、保持期限、インデックス
 
-次は、共通予約の必須列、予約種別、基本状態、日時列を確定する。
+次は、通常予約詳細の人数、開始・終了日時、コメントに対する型とCHECK制約を確定する。
