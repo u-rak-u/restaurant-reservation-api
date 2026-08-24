@@ -14,6 +14,7 @@
 - [ADR-0003: 内部主キーにUUIDv7を使用する](docs/adr/0003-uuidv7-primary-keys.md)
 - [ADR-0004: DBMSにPostgreSQLを採用する](docs/adr/0004-adopt-postgresql.md)
 - [ADR-0005: PostgreSQL 18とDockerイメージの固定方針](docs/adr/0005-postgresql-version-and-image-pinning.md)
+- [ADR-0006: 店舗の識別・タイムゾーン・初期データ方針](docs/adr/0006-store-identity-timezone-and-bootstrap.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
