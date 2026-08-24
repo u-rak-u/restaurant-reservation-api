@@ -13,6 +13,7 @@
 - [ADR-0002: 電話番号照合に鍵付きハッシュを使用する](docs/adr/0002-phone-number-matching.md)
 - [ADR-0003: 内部主キーにUUIDv7を使用する](docs/adr/0003-uuidv7-primary-keys.md)
 - [ADR-0004: DBMSにPostgreSQLを採用する](docs/adr/0004-adopt-postgresql.md)
+- [ADR-0005: PostgreSQL 18とDockerイメージの固定方針](docs/adr/0005-postgresql-version-and-image-pinning.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
@@ -46,7 +47,7 @@ Copy-Item .env.example .env
 
 ## PostgreSQLの起動
 
-Docker Desktopを起動した状態で、Compose設定と必須環境変数を確認してからPostgreSQLを起動します。
+Docker Desktopを起動した状態で、Compose設定と必須環境変数を確認してからPostgreSQLを起動します。開発環境ではPostgreSQLとベースOSの系列を揃えるため、公式イメージの `postgres:18.4-trixie` を使用します。マイナー更新と本番環境でのダイジェスト固定方針は [ADR-0005](docs/adr/0005-postgresql-version-and-image-pinning.md) を参照してください。
 
 ```powershell
 docker compose config --quiet

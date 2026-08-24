@@ -12,7 +12,7 @@
 
 ## 判断対象
 
-MVPと将来の本番運用で正とするDBMSを決定する。PostgreSQLのメジャーバージョンとDockerイメージの固定方針は、別の判断であるDB-02へ分離する。
+MVPと将来の本番運用で正とするDBMSを決定する。PostgreSQLのメジャーバージョンとDockerイメージの固定方針は、別の判断として `docs/adr/0005-postgresql-version-and-image-pinning.md` に記録する。
 
 ## 検討した選択肢
 
@@ -48,7 +48,7 @@ MVPと将来の本番運用で正とするDBMSを決定する。PostgreSQLのメ
 - 通常の開発、マイグレーション、統合テスト、同時実行テストはPostgreSQLで行う。
 - PostgreSQL固有機能を使用する場合は、採用理由、制約だけで守れる範囲、アプリケーション側で補う範囲、移植性への影響を設計文書へ記録する。
 - SQLiteを高速な代替DBとして使用し、PostgreSQL固有の動作を検証済みと扱わない。
-- PostgreSQLのメジャーバージョンとDockerイメージの固定方針はDB-02で確定する。
+- PostgreSQLのメジャーバージョンとDockerイメージの固定方針は `docs/adr/0005-postgresql-version-and-image-pinning.md` を正とする。
 
 ## 採用理由
 
