@@ -274,10 +274,10 @@ UUIDv7は連番IDのように隣接値から別レコードを列挙できず、
 | `actual_party_size` | `smallint` | 可 | 値がある場合は1以上 `party_size` 以下 | その予約で実際に受け入れた累計人数 |
 | `starts_at` | `timestamp with time zone` | 不可 | 店舗ローカル時刻で10分単位 | 予約開始日時 |
 | `ends_at` | `timestamp with time zone` | 不可 | `starts_at + 90分` | 予約終了日時 |
-| `expected_arrival_at` | `timestamp with time zone` | 可 | 値がある場合は分単位かつ来店受付終了境界より前 | 遅刻連絡で顧客が伝えた現在の到着予定日時 |
+| `expected_arrival_at` | `timestamp with time zone` | 可 | 値がある場合は分単位かつ来店受付終了境界以前 | 遅刻連絡で顧客が伝えた現在の到着予定日時 |
 | `arrival_notice_received_at` | `timestamp with time zone` | 可 | DBサーバー時刻で設定 | 現在の到着予定について連絡を受けた日時 |
-| `arrival_deadline_at` | `timestamp with time zone` | 不可 | 適用済みの計算式との一致CHECK | 元予約として来店確認できる期限兼、期限超過時の有効な席解放日時 |
-| `arrival_timeout_processed_at` | `timestamp with time zone` | 可 | 値がある場合は `arrival_deadline_at` 以後 | 期限超過による席解放をDBへ反映した処理日時 |
+| `arrival_deadline_at` | `timestamp with time zone` | 不可 | 適用済みの計算式との一致CHECK | 元予約として来店確認できる期限兼、期限超過時の席解放境界 |
+| `arrival_timeout_processed_at` | `timestamp with time zone` | 可 | 値がある場合は `arrival_deadline_at` より後 | 期限超過による席解放をDBへ反映した処理日時 |
 | `customer_comment` | `text` | 可 | 値がある場合は1文字以上500文字以下 | 顧客から店舗への要望 |
 
 - `party_size` は電話変更または当日の承認済み増員を反映した現在の予約人数とし、変更前後は監査履歴へ記録する。
@@ -295,20 +295,20 @@ UUIDv7は連番IDのように隣接値から別レコードを列挙できず、
 
 - `expected_arrival_at` と `arrival_notice_received_at` は両方NULL、または両方値ありとする。現在値は通常予約詳細に置き、複数回の連絡による変更前後と操作者はDB-40の監査記録へ残す。
 - `arrival_notice_received_at` はクライアントから受け取らず、遅刻連絡を登録する文のDBサーバー時刻を使用する。
-- `expected_arrival_at` は秒とマイクロ秒を0とし、`starts_at` より後かつ `ends_at - INTERVAL '30 minutes'` より前とする。終了30分前ちょうど以後の到着予定を許可しない。
+- `expected_arrival_at` は秒とマイクロ秒を0とし、`starts_at` より後かつ `ends_at - INTERVAL '30 minutes'` 以前とする。終了30分前ちょうどを許可し、それを過ぎた到着予定を許可しない。
 - `arrival_notice_received_at < expected_arrival_at` を必須とする。既に店舗へ到着している場合は遅刻連絡を登録せず、期限内なら通常の来店確認を行う。
-- 遅刻連絡がない場合は `arrival_deadline_at = starts_at + INTERVAL '16 minutes'` とする。
-- 遅刻連絡がある場合は `arrival_deadline_at = LEAST(expected_arrival_at + INTERVAL '16 minutes', ends_at - INTERVAL '30 minutes')` とする。
-- 到着予定の連絡は親予約が `confirmed`、`arrival_timeout_processed_at` がNULL、DBサーバー時刻が変更前の `arrival_deadline_at` より前の場合だけ登録または更新できる。この条件は現在状態、現在時刻、変更前行を参照するため、専用操作とDBトリガーで検査する。
-- 予約日時を電話変更する場合は、到着予定と連絡受付日時をNULLへ戻し、新しい開始日時の16分後を期限として同じトランザクションで再設定する。来店後または期限超過処理後は予約日時を変更しない。
-- 席解放日時ちょうど以後は、元予約の来店確認、遅刻連絡による延長、通常の顧客都合キャンセルを拒否する。期限後に受けた連絡は予約行を復活させず、無断キャンセル審査の記録へ追加する。
-- `arrival_timeout_processed_at` は、期限超過による解放をDBへ反映した実際のサーバー処理日時とし、NULLまたは `arrival_deadline_at` 以後とする。業務上の有効な解放日時は処理日時ではなく保存済みの `arrival_deadline_at` とする。
+- 遅刻連絡がない場合は `arrival_deadline_at = starts_at + INTERVAL '15 minutes'` とする。
+- 遅刻連絡がある場合は `arrival_deadline_at = LEAST(expected_arrival_at + INTERVAL '15 minutes', ends_at - INTERVAL '30 minutes')` とする。
+- 到着予定の連絡は親予約が `confirmed`、`arrival_timeout_processed_at` がNULL、DBサーバー時刻が変更前の `arrival_deadline_at` 以前の場合だけ登録または更新できる。この条件は現在状態、現在時刻、変更前行を参照するため、専用操作とDBトリガーで検査する。
+- 予約日時を電話変更する場合は、到着予定と連絡受付日時をNULLへ戻し、新しい開始日時の15分後を期限として同じトランザクションで再設定する。来店後または期限超過処理後は予約日時を変更しない。
+- 来店期限ちょうどまでは元予約の来店確認、遅刻連絡による期限更新、通常の顧客都合キャンセルを許可し、期限を過ぎた後に拒否する。期限経過後に受けた連絡は予約行を復活させず、無断キャンセル審査の記録へ追加する。
+- `arrival_timeout_processed_at` は、期限超過による解放をDBへ反映した実際のサーバー処理日時とし、NULLまたは `arrival_deadline_at` より後とする。業務上の席解放境界は処理日時ではなく保存済みの `arrival_deadline_at` とする。
 - 期限到来だけで基本状態を `no_show` へ変更しない。親予約が `confirmed` の間は解放処理済みの状態を許可し、正式な `no_show` では解放処理日時を必須とする。`checked_in`、`completed`、`cancelled` では解放処理日時をNULLとし、親状態との整合は遅延制約トリガーで検査する。
 
 期限超過による席解放は、毎分の定期実行をMVPの必須条件にせず、期限後に席を必要とする予約作成・予約なし利用受付、または営業終了時の候補抽出で遅延実行できる。
 
 1. 対象店舗、通常予約、席配置計画を共通ロック順序で取得する。
-2. DBサーバー時刻が期限以後、親状態が `confirmed`、解放処理日時がNULLであることを再確認する。
+2. DBサーバー時刻が期限より後、親状態が `confirmed`、解放処理日時がNULLであることを再確認する。
 3. 現在の席配置世代の占有終了を `arrival_deadline_at` とする不変の新世代を追加し、現在世代を切り替える。
 4. `arrival_timeout_processed_at` に処理時のDBサーバー時刻を記録する。
 5. 席を必要とする操作がある場合は、解放後の最新状態で競合を再検証して同じトランザクション内で割り当てる。
@@ -342,8 +342,8 @@ UUIDv7は連番IDのように隣接値から別レコードを列挙できず、
 - 日付をまたぐ営業、夏時間の存在しない時刻と重複する時刻、営業時間と最終入店の境界を実際のPostgreSQLと対象タイムゾーンで検証する。
 - 空文字、上限超過、禁止制御文字を含むコメントを拒否または正規化し、画面でスクリプトとして解釈しない。
 - 予約終了から90日後のコメント削除が、名前・電話番号および予約行全体の保持期限と独立して実行される。
-- 連絡の有無に応じた期限計算、終了30分前の境界、期限ちょうどの来店拒否、期限前のキャンセルと期限後の審査記録を検証する。
-- 到着予定と連絡受付日時の片方だけ、到着予定が開始以前または終了30分前以後、処理日時が期限より前という不整合を保存できない。
+- 連絡の有無に応じた期限計算、終了30分前の境界、期限ちょうどの来店許可、期限経過後の拒否、期限以前のキャンセルと期限後の審査記録を検証する。
+- 到着予定と連絡受付日時の片方だけ、到着予定が開始以前または終了30分前より後、処理日時が期限以前という不整合を保存できない。
 - 期限直前の来店確認、遅刻連絡、期限超過処理、新しい席割り当てを同時実行し、1つの整合した結果だけがコミットされる。
 - 遅延実行が期限より後になっても有効な席解放日時は保存済み期限となり、同じ期限超過処理の再送で席配置世代が重複しない。
 
