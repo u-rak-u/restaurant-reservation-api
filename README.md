@@ -23,6 +23,7 @@
 - [ADR-0011: 貸切予約のイベント時間・準備片付け時間・参加人数](docs/adr/0011-exclusive-reservation-details.md)
 - [ADR-0012: 通常予約の15分到着期限と席解放](docs/adr/0012-late-arrival-and-seat-release.md)
 - [ADR-0013: 通常予約の到着期限と遅延実行による席解放](docs/adr/0013-arrival-deadline-persistence.md)
+- [ADR-0014: 貸切範囲を種別と正規化した関連で表す](docs/adr/0014-exclusive-reservation-scope.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
