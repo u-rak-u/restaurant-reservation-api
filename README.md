@@ -29,6 +29,7 @@
 - [ADR-0017: 無断キャンセル電話照合を予約従属テーブルへ分離する](docs/adr/0017-no-show-phone-match-table.md)
 - [ADR-0018: スタッフアカウントを店舗所属の個別アカウントとして管理する](docs/adr/0018-store-scoped-staff-accounts.md)
 - [ADR-0019: スタッフ認証情報・ログイン制限・セッションを分離する](docs/adr/0019-separate-staff-authentication-state.md)
+- [ADR-0020: 当日運用責任者を時間範囲の任命履歴として保存する](docs/adr/0020-duty-manager-assignment-period.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
