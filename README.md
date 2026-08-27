@@ -27,6 +27,7 @@
 - [ADR-0015: 予約番号を店舗単位の12桁とし3年後に解放する](docs/adr/0015-store-scoped-reservation-number.md)
 - [ADR-0016: 予約確認コードとQRトークンの保存・失効方式](docs/adr/0016-reservation-credential-hashing.md)
 - [ADR-0017: 無断キャンセル電話照合を予約従属テーブルへ分離する](docs/adr/0017-no-show-phone-match-table.md)
+- [ADR-0018: スタッフアカウントを店舗所属の個別アカウントとして管理する](docs/adr/0018-store-scoped-staff-accounts.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
