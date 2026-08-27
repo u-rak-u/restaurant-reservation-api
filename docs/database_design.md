@@ -8,12 +8,12 @@ SQLAlchemyモデルとAlembicマイグレーションは、この文書の確定
 
 ## 2. 現在の状態
 
-**作成中・店舗、予約、資格情報、スタッフ認証、当日運用責任者任命と交代手続きまで確定**
+**作成中・店舗、予約、資格情報、スタッフ認証、当日運用責任者、予約なし利用の基本状態まで確定**
 
 - DBMSにはPostgreSQLを採用する。採用理由と他製品との比較は `docs/adr/0004-adopt-postgresql.md` を正とする。
 - メジャーバージョンにはPostgreSQL 18を採用し、開発用Dockerイメージには `postgres:18.4-trixie` を使用する。更新方針は `docs/adr/0005-postgresql-version-and-image-pinning.md` を正とする。
 - まず全体へ影響する共通方針を確定し、その後にドメイン領域ごとのテーブルと制約を追加する。
-- 現時点ではDB製品、メジャーバージョン、主キー方針に加え、店舗、共通予約、通常・貸切予約詳細、予約資格情報、予約番号、無断キャンセル電話照合、スタッフアカウント、スタッフ認証情報および当日運用責任者任命の有効期間、引き継ぎ、緊急就任、事後確認を確定している。予約なし利用、席配置、営業カレンダー、例外案件、監査、横断的な削除動作と競合制御は後続の確認事項である。
+- 現時点ではDB製品、メジャーバージョン、主キー方針に加え、店舗、共通予約、通常・貸切予約詳細、予約資格情報、予約番号、無断キャンセル電話照合、スタッフアカウント、スタッフ認証情報、当日運用責任者および予約なし利用の人数・日時・基本状態を確定している。予約なし利用の転換時間と訂正関係、席配置、営業カレンダー、例外案件、監査、横断的な削除動作と競合制御は後続の確認事項である。
 
 ## 3. 主キー方針
 
@@ -977,7 +977,87 @@ DEFERRABLE INITIALLY IMMEDIATE
 
 任命期間と重複防止の背景は `docs/adr/0020-duty-manager-assignment-period.md`、引き継ぎ、緊急就任、事後確認および監査分離の背景は `docs/adr/0021-duty-manager-transition-workflows.md` を正とする。
 
-## 13. 次に設計する範囲
+## 13. 予約なし利用
+
+### 13.1 `walk_in_visits` テーブル
+
+予約なし利用を予約の状態や資格情報へ混在させず、スタッフが店頭で登録する独立した集約として保存する。
+
+| 列 | PostgreSQL型 | NULL | 初期値・制約 | 用途 |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | 不可 | 主キー、`DEFAULT uuidv7()` | 予約なし利用の内部ID |
+| `store_id` | `uuid` | 不可 | `stores.id` への外部キー、`ON DELETE RESTRICT` | 対象店舗 |
+| `party_size` | `smallint` | 不可 | 1以上12以下 | 現在受け入れている人数 |
+| `status` | `text` | 不可 | `preparing`、`active`、`completed`、`aborted` のいずれか | 現在の基本状態 |
+| `registered_at` | `timestamp with time zone` | 不可 | DBサーバー時刻、不変 | 通常受付または占有継続行の登録日時 |
+| `planned_start_at` | `timestamp with time zone` | 不可 | `planned_end_at` より前 | 予定利用開始日時 |
+| `planned_end_at` | `timestamp with time zone` | 不可 | `planned_start_at` より後 | 予定終了日時 |
+| `started_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | この行での実際の利用開始日時 |
+| `completed_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | 実際の利用終了日時 |
+| `aborted_at` | `timestamp with time zone` | 可 | 状態との整合CHECK | 準備中の受付中止日時 |
+| `registered_by_staff_account_id` | `uuid` | 不可 | `store_id` と組にした複合外部キー | 通常受付または占有継続登録を行ったスタッフ |
+| `started_by_staff_account_id` | `uuid` | 可 | `store_id` と組にした複合外部キー | 利用開始を確定したスタッフ |
+| `completed_by_staff_account_id` | `uuid` | 可 | `store_id` と組にした複合外部キー | 利用終了を確定したスタッフ |
+| `aborted_by_staff_account_id` | `uuid` | 可 | `store_id` と組にした複合外部キー | 受付中止を確定したスタッフ |
+| `abort_reason` | `text` | 可 | 値がある場合は前後の空白を除いて1文字以上500文字以下 | 受付中止理由 |
+| `updated_at` | `timestamp with time zone` | 不可 | DBサーバー時刻 | 現在行の最終更新日時 |
+
+- `registered_at` は通常受付では顧客を受け付けた日時と行の作成日時を兼ねる。DB-20で設計する誤終了後の占有継続行では新しい行を登録した日時とし、元の受付日時や予定終了日時との関係は継続元から追跡する。
+- 通常受付と占有継続登録のどちらでも同じ事実になる `created_at` は別に保存しない。`registered_at`、`store_id`、`registered_by_staff_account_id` は作成後に通常更新しない。
+- 操作スタッフはすべて対象店舗と組にした複合外部キーで同一店舗所属を保証する。操作時には有効かつパスワード設定済みであることも再検証するが、後日の無効化や匿名化によって過去の参照を外さない。
+- `party_size` は予約人数と実来店人数に分けず、現在受け入れている人数を1列で保存する。変更前後と操作者はDB-40の監査記録へ残す。
+- 状態は店舗が編集するマスターではないため、PostgreSQL ENUMまたは状態マスターテーブルを作らず、`text` とCHECK制約を使用する。アプリケーションでは対応するPython Enumを使用する。
+
+### 13.2 状態と日時・操作者の組み合わせ
+
+次の組み合わせ以外をCHECK制約で拒否する。表にない共通列は全状態で必須である。
+
+| 状態 | 状態固有の必須列 | NULLでなければならない列 |
+| --- | --- | --- |
+| `preparing` | なし | `started_at`、`started_by_staff_account_id`、`completed_at`、`completed_by_staff_account_id`、中止情報 |
+| `active` | `started_at`、`started_by_staff_account_id` | `completed_at`、`completed_by_staff_account_id`、中止情報 |
+| `completed` | `started_at`、`started_by_staff_account_id`、`completed_at`、`completed_by_staff_account_id` | 中止情報 |
+| `aborted` | `aborted_at`、`aborted_by_staff_account_id`、`abort_reason` | `started_at`、`started_by_staff_account_id`、`completed_at`、`completed_by_staff_account_id` |
+
+- 通常作成では1名から4名を `active` とし、`planned_start_at = started_at = registered_at`、`started_by_staff_account_id = registered_by_staff_account_id` とする。5名から12名は `preparing` とし、開始情報をNULLにする。後者は登録確定を準備開始として扱い、別の準備開始日時を保存しない。
+- `party_size` は後から変わり得るため、「現在人数が4名以下なら必ず `active`」という永続的なCHECK制約は作らない。通常受付時の人数と初期状態の対応はINSERT時の専用処理と更新トリガーで検証する。
+- DB-20の占有継続登録では、通常受付とは異なり新しい行を直接 `active` として作成できる。継続元外部キーがある場合だけ例外を許可する制約はDB-20で追加し、任意の直接 `active` 作成を許可しない。
+- 通常状態遷移を `preparing -> active`、`preparing -> aborted`、`active -> completed` に限定する。UPDATE前後を比較する必要があるためCHECKだけに依存せず、専用操作とDB更新トリガーの両方で検証する。
+- `completed` と `aborted` は通常操作で別状態へ変更しない。誤操作は元の行を戻さず、例外案件とDB-20の占有継続登録によって扱う。
+
+### 13.3 時刻順序とサーバー時刻
+
+- `planned_start_at < planned_end_at` と `registered_at <= updated_at` をCHECK制約で保証する。
+- 値がある状態変更日時は `updated_at` 以前とし、`started_at >= planned_start_at`、`completed_at >= started_at`、`aborted_at >= registered_at` を保証する。準備が予定終了を越えた場合も開始を拒否せず、`started_at >= planned_end_at` の `active` を直ちに時間超過として扱えるようにする。
+- 通常受付では `registered_at <= planned_start_at` を要求する。ただし、占有継続登録は元の予定開始・終了日時が登録時刻より前になり得るため、この条件を全行共通のCHECKにはしない。DB-20で継続元の有無を含む条件付き制約として完成させる。
+- `registered_at` と状態変更日時をクライアントから受け取らず、各操作で取得したDBサーバー現在日時を使用する。予定開始・終了はAPIが計算して送る場合も、適用済み時間との整合をDB-19の制約で検証する。
+- `preparing -> active` はDBサーバー現在日時が `planned_start_at` 以上の場合だけ許可する。開始が遅れても `planned_end_at` を変更しない。
+- 予定終了日時を過ぎても状態を自動変更しない。`active` は利用終了操作まで継続し、現在時刻から終了間近または時間超過を派生表示する。
+
+### 13.4 人数変更
+
+- `preparing` または `active` だけ、`party_size` を1名以上12名以下で変更できる。0名へ更新せず、`preparing` では理由付き受付中止、`active` では利用終了を使用する。
+- 減員しても席配置を縮小または解放せず、受付時に確定した予定開始・終了と適用済み転換時間を変更しない。`preparing` 中に5名未満へ減っても状態を `active` へ変更しない。
+- 増員は現在の席配置計画の収容人数以内の場合だけ許可する。この条件は他テーブルと現在世代を参照するため静的CHECKではなく、予約なし利用と席配置をロックした専用操作で検証する。
+- 収容人数を超える追加参加者は別の予約なし利用として受け付ける。人数と席配置の一部だけが更新されないよう、競合検証、人数更新および監査記録を同じトランザクションへ含める。
+- `completed` と `aborted` の人数を通常更新しない。過去人数の誤りはDB-37以降の例外案件と監査・訂正関係で扱う。
+
+### 13.5 席占有、インデックスと検証
+
+- `completed_at` は顧客の利用終了を表し、必ずしも席を再利用できる時刻ではない。5名以上の終了後転換時間を含む占有終了はDB-19とDB-25以降の席配置計画で管理する。
+- `aborted` では中止時刻に席を解放する新しい席配置世代を同じトランザクションで作る。状態だけを変更して席占有を残したり、席だけを解放して `preparing` を残したりしない。
+- 店舗の当日一覧と状態別検索の基本候補として `INDEX (store_id, status, planned_start_at)` を置く。現在時刻をインデックス条件へ埋め込まず、具体的な横断検索インデックスはDB-50で全体確認する。
+- 状態と必須日時・スタッフ・中止理由の全組み合わせ、1名と12名の境界、0名と13名の拒否、予定開始・終了の境界を実際のPostgreSQLで検証する。
+- 4名と5名の通常受付、準備開始予定ちょうどの利用開始、予定終了後の利用開始・終了、準備中の5名未満への減員、定員内増員、端末時刻を改変した入力を検証する。
+- 利用開始と受付中止、利用終了と人数変更、同じ利用への複数人数変更を並行実行し、1つの有効な結果と対応する監査・席配置だけが確定することを検証する。
+
+1行の現在状態と状態固有日時をCHECKで揃える方式なら、状態ごとにテーブル間で行を移さず、当日一覧を単純に検索できる。40席の単一店舗では予約なし利用の同時件数は席数以下であり、状態インデックスと行ロックで十分実用的である。
+
+一方、CHECK制約だけでは更新前状態、DB現在時刻、現在の席配置定員、占有継続登録という別行との関係を検査できない。状態遷移トリガー、用途別操作、店舗・対象行・席配置のロックおよびPostgreSQL統合テストを組み合わせる必要がある。準備中の人数変更を許可しても席と適用済み時間を組み直さないため安全側だが、減員後も準備完了まで待つ運用が不便と判明した場合は、理由付きで受付を差し替える専用操作をMVP後に検討する。
+
+この方針の背景、代替案、実用性は `docs/adr/0022-walk-in-visit-state.md` を正とする。
+
+## 14. 次に設計する範囲
 
 1. 店舗、予約、通常予約詳細、貸切予約詳細、資格情報、無断キャンセル電話照合
 2. スタッフアカウントと当日運用責任者任命
@@ -987,4 +1067,4 @@ DEFERRABLE INITIALLY IMMEDIATE
 6. 例外案件、監査、削除保留、定期削除実行
 7. 横断的な競合制御、冪等性、保持期限、インデックス
 
-次は、予約なし利用の人数、受付・開始・終了日時および基本状態に対する型とCHECK制約を確定する。
+次は、5名以上の予約なし利用へ適用する準備・終了後転換時間と、予定終了・実終了を席占有へ反映する保存位置を確定する。

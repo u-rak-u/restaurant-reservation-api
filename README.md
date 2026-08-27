@@ -30,6 +30,8 @@
 - [ADR-0018: スタッフアカウントを店舗所属の個別アカウントとして管理する](docs/adr/0018-store-scoped-staff-accounts.md)
 - [ADR-0019: スタッフ認証情報・ログイン制限・セッションを分離する](docs/adr/0019-separate-staff-authentication-state.md)
 - [ADR-0020: 当日運用責任者を時間範囲の任命履歴として保存する](docs/adr/0020-duty-manager-assignment-period.md)
+- [ADR-0021: 当日運用責任者の交代手続きを任命と分離して保存する](docs/adr/0021-duty-manager-transition-workflows.md)
+- [ADR-0022: 予約なし利用を状態と操作日時を持つ独立した行として保存する](docs/adr/0022-walk-in-visit-state.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
