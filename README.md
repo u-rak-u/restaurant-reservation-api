@@ -34,6 +34,7 @@
 - [ADR-0022: 予約なし利用を状態と操作日時を持つ独立した行として保存する](docs/adr/0022-walk-in-visit-state.md)
 - [ADR-0023: 予約なし利用の利用日時と席占有を分離して保存する](docs/adr/0023-walk-in-time-and-occupancy.md)
 - [ADR-0024: 予約なし利用の占有継続を利用系列で管理する](docs/adr/0024-walk-in-continuation-series.md)
+- [ADR-0025: 13名以上の予約なし利用は共通操作IDを監査記録へ保存する](docs/adr/0025-walk-in-batch-operation-id.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
