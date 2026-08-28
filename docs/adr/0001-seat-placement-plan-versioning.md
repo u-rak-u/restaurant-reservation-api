@@ -76,4 +76,4 @@
 
 見直す場合も、既存の過去配置と監査証跡を失う移行は行わない。
 
-予約なし利用の利用日時、転換時間、実績占有および時間超過時の扱いは `docs/adr/0023-walk-in-time-and-occupancy.md`、13名以上の一括受付における原因操作識別子は `docs/adr/0025-walk-in-batch-operation-id.md` で具体化する。
+予約なし利用の利用日時、転換時間、実績占有および時間超過時の扱いは `docs/adr/0023-walk-in-time-and-occupancy.md`、13名以上の一括受付における原因操作識別子は `docs/adr/0025-walk-in-batch-operation-id.md`、席配置が参照するマスターの境界は `docs/adr/0026-separate-floor-area-table-and-location.md` で具体化する。
