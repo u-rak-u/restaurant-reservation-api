@@ -36,6 +36,7 @@
 - [ADR-0024: 予約なし利用の占有継続を利用系列で管理する](docs/adr/0024-walk-in-continuation-series.md)
 - [ADR-0025: 13名以上の予約なし利用は共通操作IDを監査記録へ保存する](docs/adr/0025-walk-in-batch-operation-id.md)
 - [ADR-0026: フロア・エリア・物理テーブル・配置場所を分離する](docs/adr/0026-separate-floor-area-table-and-location.md)
+- [ADR-0027: 席構成マスターのコード・名称・表示順を定める](docs/adr/0027-seat-master-identifiers-and-order.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
