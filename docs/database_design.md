@@ -1066,7 +1066,7 @@ DEFERRABLE INITIALLY IMMEDIATE
 
 - 通常作成では1名から4名を `active` とし、`planned_start_at = started_at = registered_at`、`started_by_staff_account_id = registered_by_staff_account_id` とする。5名から12名は `preparing` とし、開始情報をNULLにする。後者は登録確定を準備開始として扱い、別の準備開始日時を保存しない。
 - `party_size` は後から変わり得るため、「現在人数が4名以下なら必ず `active`」という永続的なCHECK制約は作らない。通常受付時の人数と初期状態の対応はINSERT時の専用処理と更新トリガーで検証する。
-- 占有継続登録では、継続元が `completed` の場合は新しい行を `active`、継続元が `aborted` の場合は現場の実態に応じて `preparing` または `active` とする。`active` では `started_at = registered_at`、`started_by_staff_account_id = registered_by_staff_account_id` とし、予定開始前の直接 `active` 作成は許可しない。
+- 占有継続登録では、継続元が `completed` の場合は新しい行を `active`、継続元が `aborted` の場合は現場の実態に応じて `preparing` または `active` とする。`active` では `started_at = registered_at`、`started_by_staff_account_id = registered_by_staff_account_id` とする。通常受付と通常の `preparing -> active` では予定開始前の利用開始を許可しないが、`aborted` から `active` を作る占有継続登録に限り、現実の利用開始を保存するため `registered_at < planned_start_at` と `started_at < planned_start_at` を許可する。
 - 継続元の終了状態は戻さない。継続元は `completed` または `aborted`、継続先の初期状態は前項の組み合わせだけを許可し、通常受付で任意の継続元を指定する操作を作らない。
 - 通常状態遷移を `preparing -> active`、`preparing -> aborted`、`active -> completed` に限定する。UPDATE前後を比較する必要があるためCHECKだけに依存せず、専用操作とDB更新トリガーの両方で検証する。
 - `completed` と `aborted` は通常操作で別状態へ変更しない。誤操作は元の行を戻さず、例外案件と同じ系列への占有継続登録によって扱う。
@@ -1076,7 +1076,7 @@ DEFERRABLE INITIALLY IMMEDIATE
 - `planned_end_at - planned_start_at` は60分以上180分以下かつ600秒の倍数とし、60分、180分および10分単位をCHECK制約で保証する。予定開始・終了は作成後に通常更新しない。
 - 予定利用時間が90分未満の場合だけ `short_duration_notice_confirmed_at` を必須とし、90分以上ではNULLを要求する。通常受付の確定操作で `registered_at` と同じDB時刻を保存し、その操作主体である `registered_by_staff_account_id` を案内確認スタッフとする。占有継続行は継続元の案内確認日時を引き継ぎ、新しい登録日時へ置き換えない。
 - `registered_at <= updated_at` をCHECK制約で保証する。
-- 値がある状態変更日時は `updated_at` 以前とし、`started_at >= planned_start_at`、`completed_at >= started_at`、`aborted_at >= registered_at` を保証する。準備が予定終了を越えた場合も開始を拒否せず、`started_at >= planned_end_at` の `active` を直ちに時間超過として扱えるようにする。
+- 値がある状態変更日時は `updated_at` 以前とし、`completed_at >= started_at`、`aborted_at >= registered_at` をCHECK制約で保証する。`started_at >= planned_start_at` は全行共通のCHECKにはせず、通常受付、通常の `preparing -> active`、および `completed` からの占有継続では専用処理とDBトリガーで保証する。`aborted` から直接 `active` を作る占有継続だけを例外とし、継続元の状態を同じトランザクションで検証したうえで予定開始前の `started_at = registered_at` を許可する。準備が予定終了を越えた場合も開始を拒否せず、`started_at >= planned_end_at` の `active` を直ちに時間超過として扱えるようにする。
 - 通常受付では `continued_from_walk_in_visit_id IS NULL` と `registered_at <= planned_start_at` を要求する。占有継続行は元の予定開始・終了を引き継ぐため、継続元がある場合だけ過去の予定日時を許可する。
 - `registered_at` と状態変更日時をクライアントから受け取らず、各操作で取得したDBサーバー現在日時を使用する。予定開始・終了はAPIが計算して送る場合も、現在の席配置世代に保存する適用済み利用前転換時間との整合を遅延制約トリガーで検証する。
 - `preparing -> active` はDBサーバー現在日時が `planned_start_at` 以上の場合だけ許可する。開始が遅れても `planned_end_at` を変更しない。
@@ -1128,7 +1128,7 @@ DEFERRABLE INITIALLY IMMEDIATE
 - 状態と必須日時・スタッフ・中止理由の全組み合わせ、1名と12名の境界、0名と13名の拒否、予定時間の60分・180分・10分単位、90分未満の案内確認条件を実際のPostgreSQLで検証する。
 - 4名と5名の通常受付、準備開始予定ちょうどの利用開始、予定終了後の利用開始・終了、準備中の5名未満への減員、定員内増員、端末時刻を改変した入力を検証する。
 - 利用開始と受付中止、利用終了と人数変更、同じ利用への複数人数変更を並行実行し、1つの有効な結果と対応する監査・席配置だけが確定することを検証する。早期終了、時間超過中の新規受付、後続予約と重なる実終了も検証し、実終了を失わず新しい割り当てだけを拒否できることを確認する。
-- 通常系列、`completed -> active`、`aborted -> preparing`、`aborted -> active`、複数回の直列継続を保存できることを確認する。複数の最初の利用、別店舗・別系列参照、分岐、合流、循環、継続元の再利用、不正な状態組み合わせは拒否する。
+- 通常系列、`completed -> active`、`aborted -> preparing`、予定開始前と予定開始後の `aborted -> active`、複数回の直列継続を保存できることを確認する。通常受付、通常の `preparing -> active`、および `completed -> active` では予定開始前の開始を拒否する。複数の最初の利用、別店舗・別系列参照、分岐、合流、循環、継続元の再利用、不正な状態組み合わせも拒否する。
 - 元の席を別予定へ割り当て済みの場合も現実の占有継続を保存でき、既存予定を失わず強い警告と追加割り当て拒否を判定できることを確認する。同じ系列を同時に継続しようとした場合は最大1件だけを確定する。
 - 系列の一部だけを削除できず、最新の利用または案件から3年を経過していない系列、未終了行、未解決案件、削除保留がある系列を削除候補にしないことを確認する。
 - 13名以上を2件以上へ分割した受付では、各件が別系列になり、全受付監査記録、新規の席配置世代および自動再配置した既存計画の新世代へ同じ `operation_id` が保存されることを確認する。別の一括受付では異なる値になること、1件でも保存に失敗した場合は操作識別子を含めて何も確定しないことも確認する。
