@@ -18,12 +18,16 @@ DB-03は、DB-02で確定したPostgreSQL 18を前提とする。DB製品また�
 
 ## フェーズレビュー指摘対応
 
-- [ ] ENV-R01 FastAPI `TestClient` 用依存を `httpx` と `httpx2` のどちらにするか確定し、依存定義と `AGENTS.md` を揃える
+- [x] ENV-R01 FastAPI `TestClient` 用依存を `httpx2` に確定し、依存定義と `AGENTS.md` が一致していることを確認する
 - [ ] ENV-R02 `pyproject.toml` とロックファイルを使う依存固定方法を確定し、新しい環境でインストールとpytestを再検証する
 - [ ] REQ-R01 未解決の例外案件によって予約者の個人情報が無期限保持にならない終結・保持方針を決める
-- [ ] REQ-R02 未解決の `temporary_closure_response` がある予約を無断キャンセル候補から除外するか、判定順序を決める
-- [ ] REQ-R03 到着期限超過による席解放後に許可する管理責任者・管理者の例外変更・取消と、席・審査への影響を決める
+- [x] REQ-R02 未解決の `temporary_closure_response` がある予約を無断キャンセル候補から除外するか、判定順序を決める
+- [x] REQ-R03 到着期限超過による席解放後に許可する管理責任者・管理者の例外変更・取消と、席・審査への影響を決める
 - [ ] REQ-R04 貸切の無断キャンセル候補化の基準時刻、判断権限、席資源解放を決める
+
+ENV-R01は2026-08-31時点のStarlette 1.2.0以降が `TestClient` で `httpx2` を優先し、従来の `httpx` を非推奨としていることを公式資料と現在のソースで再確認した。実際に使用するFastAPI、Starlette、`httpx2` の組み合わせはENV-R02のロックファイルで固定して再検証する。
+
+REQ-R01は `no_show_review` と `temporary_closure_response` の30日管理終結、予約者名・電話番号の予定終了から1年という削除上限まで確定した。`arrival_issue` が未解決のまま30日を迎えた場合は、予約が `confirmed`、`checked_in`、`completed` のいずれかによって終結方法が異なるため要確認として残す。
 
 ## 店舗・予約・資格情報
 
