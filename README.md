@@ -40,6 +40,7 @@
 - [ADR-0028: 席資源の一時ブロックを恒久的なマスター状態と分離する](docs/adr/0028-separate-seat-resource-blocks.md)
 - [ADR-0029: 貸切の到着期限と明示的な資源解放](docs/adr/0029-exclusive-arrival-deadline.md)
 - [ADR-0030: 未解決来店案件の管理終結を基本状態と分離する](docs/adr/0030-separate-management-closure-from-status.md)
+- [ADR-0031: 物理テーブルの固定・可動を固定配置場所の有無で表す](docs/adr/0031-physical-table-capacity-and-fixed-location.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
