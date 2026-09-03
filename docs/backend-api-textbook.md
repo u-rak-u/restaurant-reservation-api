@@ -147,17 +147,19 @@ HTTPリクエストには主に次の情報があります。
 
 ## 2. Pythonの実行環境とパッケージ管理
 
-### 2.1 Python本体、仮想環境、pipの違い
+### 2.1 Python本体、仮想環境、uvの違い
 
 ```text
-Python本体
+uv
+  ├─ Python本体
+  ├─ pyproject.toml（必要な依存関係と許容範囲）
+  ├─ uv.lock（実際に解決した正確なバージョン）
   └─ .venv（このプロジェクト専用の環境）
        ├─ python.exe
-       ├─ pip
        └─ インストールしたライブラリ
 ```
 
-Python本体はプログラムを実行します。仮想環境は、プロジェクトごとにライブラリを分離します。`pip`は、その仮想環境へライブラリを追加します。
+Python本体はプログラムを実行し、仮想環境はプロジェクトごとにライブラリを分離します。uvは、Python本体の準備、依存関係の解決、ロックファイル、仮想環境の同期、プロジェクト内コマンドの実行をまとめて扱います。
 
 仮想環境を使わないと、別プロジェクトが要求するバージョンと衝突しやすくなります。
 
@@ -166,27 +168,30 @@ Python本体はプログラムを実行します。仮想環境は、プロジ�
 プロジェクトのルートで実行します。
 
 ```powershell
-# Pythonのバージョン
-.\.venv\Scripts\python.exe --version
+# uvのバージョン
+uv --version
 
-# pipのバージョン
-.\.venv\Scripts\python.exe -m pip --version
+# プロジェクトで使うPython 3.12を準備する
+uv python install 3.12
 
-# requirements-dev.txtに書かれた依存関係を入れる
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+# uv.lockどおりに開発用依存を含む環境を作る
+uv sync --locked
+
+# 仮想環境のPythonバージョン
+uv run python --version
 
 # インストール済みパッケージを確認する
-.\.venv\Scripts\python.exe -m pip list
+uv pip list
 
 # 依存関係の矛盾を確認する
-.\.venv\Scripts\python.exe -m pip check
+uv pip check
 ```
 
-`python -m pip`と書く理由は、「今使っているPythonに所属するpip」を明確にするためです。`pip`だけを実行すると、別のPythonに所属するpipを呼ぶ事故が起こることがあります。
+`uv run`はプロジェクトの `.venv` を選んでコマンドを実行するため、別のPythonを誤って使う事故を減らせます。`uv sync --locked` は依存定義とロックファイルが一致しない場合に失敗するので、別PCや自動実行環境で同じ依存を再現する確認にも使えます。
 
-### 2.3 `requirements.txt`とは
+### 2.3 `pyproject.toml`と`uv.lock`とは
 
-`requirements.txt`は、アプリの実行に必要なライブラリの一覧です。`requirements-dev.txt`には、pytestなど開発・テスト時だけ必要なものを置けます。
+`pyproject.toml`には、アプリの実行に必要な依存関係を `[project].dependencies`、pytestなど開発時だけ必要な依存関係を `[dependency-groups].dev` として記述します。`uv.lock`には、間接依存を含めてuvが解決した正確なバージョンが記録されます。通常は両方をGitで管理し、`uv.lock`を手で編集しません。
 
 現在使う主なライブラリの役割は次のとおりです。
 
@@ -216,19 +221,21 @@ SQLAlchemy>=2.0,<3.0
 
 - `>=2.0`: 2.0より古いものを使わない
 - `<3.0`: 大きな互換性変更があり得る3系を自動では入れない
-- 条件内では、通常pipが利用可能な新しい安定版を選ぶ
+- 条件内では、通常uvが互換するパッケージの組み合わせを解決する
 
 `psycopg[binary]`の`[binary]`はバージョンではなく追加機能です。Windowsで始めやすい、ビルド済みのバイナリを一緒に入れる指定です。
 
 ### 2.5 バージョンを調べる手順
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip index versions SQLAlchemy
-.\.venv\Scripts\python.exe -m pip index versions pydantic-settings
-.\.venv\Scripts\python.exe -m pip index versions psycopg
+# 現在ロックされた直接依存と間接依存を確認する
+uv tree
+
+# pyproject.tomlとuv.lockの整合を確認する
+uv lock --check
 ```
 
-確認するのは次の3点です。
+新しい依存を追加する前は公式ドキュメントとパッケージ公開情報で候補版を確認し、次の3点を調べます。
 
 1. 安定版か（`a`、`b`、`rc`などの開発途中版ではないか）
 2. 自分のPythonバージョンに対応するか
@@ -1614,16 +1621,16 @@ DB内の有効予約は1件
 
 ```powershell
 # 全テスト
-.\.venv\Scripts\python.exe -m pytest
+uv run python -m pytest
 
 # 詳細表示
-.\.venv\Scripts\python.exe -m pytest -v
+uv run python -m pytest -v
 
 # 1ファイル
-.\.venv\Scripts\python.exe -m pytest tests\test_health.py -v
+uv run python -m pytest tests\test_health.py -v
 
 # 名前で絞る
-.\.venv\Scripts\python.exe -m pytest -k overlap -v
+uv run python -m pytest -k overlap -v
 ```
 
 ---
@@ -1666,10 +1673,10 @@ docker compose ps
 docker compose logs db
 
 # Python側の依存関係
-.\.venv\Scripts\python.exe -m pip check
+uv pip check
 
 # テスト
-.\.venv\Scripts\python.exe -m pytest -v
+uv run python -m pytest -v
 ```
 
 確認は「Docker → PostgreSQL → Pythonドライバー → SQLAlchemy → アプリ」の順で、下の層から積み上げます。
@@ -1800,7 +1807,7 @@ git diff --staged
 
 作るもの:
 
-1. `requirements.txt`のDB依存関係
+1. `pyproject.toml`のDB依存関係と更新した`uv.lock`
 2. `app/config.py`
 3. `app/database.py`
 4. DBへ実際に問い合わせる接続テスト
@@ -1813,7 +1820,7 @@ git diff --staged
 - `SELECT 1`が実際のPostgreSQLで成功する
 - Sessionを必ず閉じる
 
-状態: 依存関係の記述まで完了
+状態: uvへの依存管理移行まで完了。DB依存関係の追加は未着手
 
 ### 段階2C: Alembic
 
@@ -1880,7 +1887,7 @@ git diff --staged
 
 ### 課題1: 依存関係を自分の言葉で説明する
 
-`requirements.txt`へ追加した次の3つについて、一文ずつ書いてください。
+`pyproject.toml`へ追加予定の次の3つについて、一文ずつ書いてください。
 
 - SQLAlchemy
 - pydantic-settings

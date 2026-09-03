@@ -18,16 +18,22 @@ DB-03は、DB-02で確定したPostgreSQL 18を前提とする。DB製品また�
 
 ## フェーズレビュー指摘対応
 
+- [x] REVIEW-M1-01 最小FastAPI環境の変更範囲と依存・テストの再レビューを完了する
+- [x] REVIEW-REQ-01 要件定義全体の指摘対応と対象範囲の再レビューを完了する
 - [x] ENV-R01 FastAPI `TestClient` 用依存を `httpx2` に確定し、依存定義と `AGENTS.md` が一致していることを確認する
-- [ ] ENV-R02 `pyproject.toml` とロックファイルを使う依存固定方法を確定し、新しい環境でインストールとpytestを再検証する
-- [ ] REQ-R01 未解決の例外案件によって予約者の個人情報が無期限保持にならない終結・保持方針を決める
+- [x] ENV-R02 `pyproject.toml` とロックファイルを使う依存固定方法を確定し、新しい環境でインストールとpytestを再検証する
+- [x] REQ-R01 未解決の例外案件によって予約者の個人情報が無期限保持にならない終結・保持方針を決める
 - [x] REQ-R02 未解決の `temporary_closure_response` がある予約を無断キャンセル候補から除外するか、判定順序を決める
 - [x] REQ-R03 到着期限超過による席解放後に許可する管理責任者・管理者の例外変更・取消と、席・審査への影響を決める
-- [ ] REQ-R04 貸切の無断キャンセル候補化の基準時刻、判断権限、席資源解放を決める
+- [x] REQ-R04 貸切の無断キャンセル候補化の基準時刻、判断権限、席資源解放を決める
 
-ENV-R01は2026-08-31時点のStarlette 1.2.0以降が `TestClient` で `httpx2` を優先し、従来の `httpx` を非推奨としていることを公式資料と現在のソースで再確認した。実際に使用するFastAPI、Starlette、`httpx2` の組み合わせはENV-R02のロックファイルで固定して再検証する。
+ENV-R01は2026-08-31時点のStarlette 1.2.0以降が `TestClient` で `httpx2` を優先し、従来の `httpx` を非推奨としていることを公式資料と現在のソースで再確認した。ENV-R02ではuvを採用し、`pyproject.toml` と `uv.lock` へFastAPI 0.141.1、Starlette 1.6.0、`httpx2` 2.12.0を含む解決結果を固定した。Python 3.12.14の新規 `.venv` を同期し、ロック整合確認とpytestを再検証した。
 
-REQ-R01は `no_show_review` と `temporary_closure_response` の30日管理終結、予約者名・電話番号の予定終了から1年という削除上限まで確定した。`arrival_issue` が未解決のまま30日を迎えた場合は、予約が `confirmed`、`checked_in`、`completed` のいずれかによって終結方法が異なるため要確認として残す。
+REQ-R01は `no_show_review` と `temporary_closure_response` に加えて、`arrival_issue` の30日管理終結を確定した。`arrival_issue` は証拠不足の `rejected` とし、予約が `confirmed` なら店舗側の管理終結による `cancelled`、`checked_in` または `completed` なら基本状態を維持する。`checked_in` には `management_closed_at` を設定して通常業務から除外し、後から判明した事実は履歴・監査・訂正記録にだけ残す。いずれも顧客ペナルティと無断キャンセル電話照合を作らず、予約者名・電話番号は予定終了から1年を削除上限とする。
+
+REQ-R04は貸切の代表者到着期限をイベント開始30分後を標準とし、個別合意した分単位の期限を許可する。期限超過だけでは自動解放または `no_show` にせず、管理責任者または管理者が現在の資源占有を明示的に解放し、同じトランザクションで `no_show_review` を開始する。正式な `no_show` は後日の承認で確定する。
+
+複数の未解決案件が同一予約に併存する場合は、予定終了30日後の日次処理で `temporary_closure_response`、`arrival_issue`、`no_show_review` の順に優先して予約単位で一括終結する。未解決の `arrival_issue` がある間は、無断キャンセル候補化、貸切の明示的な資源解放および `no_show_review` の承認を行わない。
 
 ## 店舗・予約・資格情報
 

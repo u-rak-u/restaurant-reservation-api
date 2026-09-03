@@ -38,6 +38,8 @@
 - [ADR-0026: フロア・エリア・物理テーブル・配置場所を分離する](docs/adr/0026-separate-floor-area-table-and-location.md)
 - [ADR-0027: 席構成マスターのコード・名称・表示順を定める](docs/adr/0027-seat-master-identifiers-and-order.md)
 - [ADR-0028: 席資源の一時ブロックを恒久的なマスター状態と分離する](docs/adr/0028-separate-seat-resource-blocks.md)
+- [ADR-0029: 貸切の到着期限と明示的な資源解放](docs/adr/0029-exclusive-arrival-deadline.md)
+- [ADR-0030: 未解決来店案件の管理終結を基本状態と分離する](docs/adr/0030-separate-management-closure-from-status.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
@@ -51,21 +53,22 @@
 ## 必要な環境
 
 - Python 3.12以上の利用可能な安定版
+- uv
 - Windows PowerShell
 - Docker Desktop
 - Docker Compose
 
-使用するコマンドが見つからない場合は、PythonやDockerをインストールした端末であることと、実行ファイルへPATHが通っていることを確認してください。開発端末と自動実行環境では、利用できるツールが異なる場合があります。
+使用するコマンドが見つからない場合は、uvやDockerをインストールした端末であることと、実行ファイルへPATHが通っていることを確認してください。開発端末と自動実行環境では、利用できるツールが異なる場合があります。
 
 ## セットアップ
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+uv python install 3.12
+uv sync
 Copy-Item .env.example .env
 ```
+
+依存関係は `pyproject.toml` へ定義し、実際に解決したバージョンは `uv.lock` で固定します。通常は開発用依存を含む `uv sync` を使用し、ロックファイルを更新せずに環境を再現できることを厳密に確認するときは `uv sync --locked` を使用します。
 
 作成した `.env` の `POSTGRES_PASSWORD` は、ローカル開発用の十分に推測されにくい値へ変更してください。`.env` はGitの管理対象外です。
 
@@ -85,7 +88,7 @@ docker compose ps
 ## 起動
 
 ```powershell
-python -m uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 起動後、`http://127.0.0.1:8000/health` にアクセスすると、次のレスポンスが返ります。
@@ -97,5 +100,5 @@ python -m uvicorn app.main:app --reload
 ## テスト
 
 ```powershell
-python -m pytest
+uv run python -m pytest
 ```
