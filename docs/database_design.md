@@ -1365,7 +1365,29 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 
 テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md`、操作権限と影響警告は `docs/adr/0034-seat-resource-block-operations-and-warnings.md`、連結可能関係は `docs/adr/0035-undirected-placement-location-connections.md` を正とする。
 
-## 15. 次に設計する範囲
+## 15. 席配置計画
+
+### 15.1 `seat_placement_plans` テーブル
+
+通常予約、貸切予約および予約なし利用の席配置世代を共通化しながら、1件の計画が属する業務対象を一意にする。
+
+| 列 | PostgreSQL型 | NULL | 初期値・制約 | 用途 |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | 不可 | 主キー、`DEFAULT uuidv7()` | 席配置計画の内部ID |
+| `store_id` | `uuid` | 不可 | `stores.id` への外部キー、`ON DELETE RESTRICT` | 所属店舗と認可・ロック境界 |
+| `reservation_id` | `uuid` | 可 | `store_id` と組にした `reservations` への複合外部キー | 通常予約または貸切予約 |
+| `walk_in_visit_id` | `uuid` | 可 | `store_id` と組にした `walk_in_visits` への複合外部キー | 個別の予約なし利用区間 |
+
+- `CHECK ((reservation_id IS NOT NULL) <> (walk_in_visit_id IS NOT NULL))` により、予約または予約なし利用のどちらか一方だけを必須とする。対象種別列は持たない。
+- `(store_id, reservation_id)` から `reservations (store_id, id)`、`(store_id, walk_in_visit_id)` から `walk_in_visits (store_id, id)` へ複合外部キーを設定し、別店舗の対象を参照できないようにする。具体的な `ON DELETE` はDB-49で確定する。
+- `reservation_id IS NOT NULL` を条件とする予約用の部分UNIQUEインデックスと、`walk_in_visit_id IS NOT NULL` を条件とする予約なし利用用の部分UNIQUEインデックスにより、同じ対象の計画を最大1件にする。
+- 通常予約と貸切予約は共通の `reservations.id` を参照し、予約種別を席配置計画へ重複保存しない。予約なし利用は系列IDではなく個別の `walk_in_visits.id` を参照する。
+- 通常予約、貸切予約、予約なし利用または占有継続の作成では、対象、席配置計画、第1世代、席割り当ておよび監査記録を同じトランザクションで保存する。
+- 対象側にも計画が必ず存在することを、予約、予約なし利用および席配置計画を検査する `DEFERRABLE INITIALLY DEFERRED` な制約トリガーでコミット時に保証する。挿入順にかかわらず、コミット時には対象ごとにちょうど1件を要求する。
+- `store_id`、`reservation_id` および `walk_in_visit_id` は作成後に変更しない。計画を別の対象へ付け替えず、配置変更では同じ計画へ新しい世代を追加する。
+- 席配置計画の現在世代参照と世代側の外部キー構成はDB-26、外部キーの削除動作はDB-49で確定する。
+
+## 16. 次に設計する範囲
 
 1. 店舗、予約、通常予約詳細、貸切予約詳細、資格情報、無断キャンセル電話照合
 2. スタッフアカウントと当日運用責任者任命
