@@ -1303,9 +1303,31 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 - MVPへブロック開始と解除の限定操作を含めるが、席構成マスターの作成、任意項目更新、恒久廃止および物理削除を行う汎用管理CRUDは含めない。
 - ブロック対象、時間範囲と重複制約はDB-23B、権限、理由、監査および既存席配置への警告はDB-23Cで確定する。ブロック期間と重なる新しい割り当てを拒否する具体的な競合制約はDB-30でも整合を確認する。
 
+### 14.8 `seat_resource_blocks` テーブル
+
+物理テーブル自体の故障と、雨漏りや通路障害など配置場所側の問題を区別しながら、どちらも共通の開始・解除処理で扱う。
+
+| 列 | PostgreSQL型 | NULL | 初期値・制約 | 用途 |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | 不可 | 主キー、`DEFAULT uuidv7()` | 席資源ブロックの内部ID |
+| `store_id` | `uuid` | 不可 | `stores.id` への外部キー、`ON DELETE RESTRICT` | 所属店舗と認可境界 |
+| `physical_table_id` | `uuid` | 可 | `store_id` と組にした `physical_tables` への複合外部キー、`ON DELETE RESTRICT` | 場所に関係なく使用不能な物理テーブル |
+| `placement_location_id` | `uuid` | 可 | `store_id` と組にした `placement_locations` への複合外部キー、`ON DELETE RESTRICT` | 置くテーブルに関係なく使用不能な配置場所 |
+| `starts_at` | `timestamp with time zone` | 不可 | 開始を含む | 使用不能期間の開始日時 |
+| `ends_at` | `timestamp with time zone` | 可 | NULLなら終了未定、値があれば `starts_at < ends_at` | 使用不能期間の終了日時 |
+
+- `CHECK ((physical_table_id IS NOT NULL) <> (placement_location_id IS NOT NULL))` により、物理テーブルまたは配置場所のどちらか一方だけを必須にする。対象種別列は持たない。
+- `(store_id, physical_table_id)` と `(store_id, placement_location_id)` の複合外部キーにより別店舗の対象を参照できないようにする。新規ブロックの処理では対象を再取得し、対象とその親マスターが恒久廃止済みでないことも確認する。
+- 使用不能期間は `tstzrange(starts_at, ends_at, '[)')` として比較する。終了時刻と次の利用開始時刻が同じ場合は重複させず、`ends_at IS NULL` は将来に上限のない期間として扱う。
+- `btree_gist` を有効にし、`physical_table_id IS NOT NULL` を条件とする物理テーブル用と、`placement_location_id IS NOT NULL` を条件とする配置場所用のGiST排他制約を設ける。同じ対象の期間重複を、並行書き込みを含めてDBで拒否する。
+- 物理テーブルと配置場所は異なる資源であるため、物理テーブルのブロックと配置場所のブロックが同じ期間に存在することは許可する。候補探索では選択する物理テーブルと配置場所の双方について重複ブロックがないことを要求する。
+- 終了日時が既に到来したブロックは、行を更新する定期処理なしで候補除外の対象外になる。終了未定のブロックは解除操作がDBサーバー時刻を `ends_at` へ設定するまで候補から除外する。
+- 終了済みブロックを通常操作で物理削除しない。席構成マスターの恒久廃止では現在または将来のブロックを先に解消し、過去の終了済みブロックからの参照は維持する。
+- 開始・解除権限、理由、監査、予定開始前の取消および既存席配置への警告はDB-23Cで確定する。ブロックと重なる新しい割り当てを拒否する具体的な制約とトランザクションはDB-30で確定する。
+
 4つを分けるとテーブル数と結合は増えるが、40席規模では対象行が少なく、空席検索の性能上の問題になる可能性は低い。実在する什器と論理的な配置場所を分けることで、同じテーブルの時間帯別移動と過去の配置を表現できる。一方、エリア関係だけでは壁や通路を自動検証できないため、店舗が事前確認したマスター設定を正とし、恒久廃止、一時ブロック、連結制約およびPostgreSQL統合テストによって変更時の影響を制御する。
 
-テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md` を正とする。
+テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md` を正とする。
 
 ## 15. 次に設計する範囲
 
