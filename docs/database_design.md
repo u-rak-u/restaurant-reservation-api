@@ -1263,7 +1263,7 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 
 - `floor_id` を重複保存せず、所属フロアはエリアから求める。
 - マスターへ「現在ここにあるテーブル」を可変列として保存しない。予約または予約なし利用の時間帯ごとの物理テーブルと配置場所の組は、DB-28で設計する席割り当てへ保存する。
-- 正確な座標、寸法、回転および形状をMVP列へ追加しない。配置場所が近いか、連結できるかはDB-24の明示的な連結可能関係を正とする。
+- 正確な座標、寸法、回転および形状をMVP列へ追加しない。配置場所が近いか、連結できるかはADR-0035の明示的な連結可能関係を正とする。
 
 ### 14.5 店舗・フロア・エリア境界の整合性
 
@@ -1340,9 +1340,30 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 - 警告専用の状態列を保存せず、競合しない新世代への配置変更、ブロックの解除・取消・期間終了、または対象利用が資源を確保しなくなった場合だけ関連データから解消を判定する。重なりが残る警告は手動で非表示にしない。
 - ブロックと重なる新しい割り当てを拒否する具体的な制約とトランザクションはDB-30、共通ロック順序はDB-46で確定する。
 
+### 14.9 `placement_location_connections` テーブル
+
+同時に使用したとき物理的に直接連結できる配置場所同士を、方向を持たない1件の関係として保存する。
+
+| 列 | PostgreSQL型 | NULL | 初期値・制約 | 用途 |
+| --- | --- | --- | --- | --- |
+| `store_id` | `uuid` | 不可 | `stores.id` への外部キー、`ON DELETE RESTRICT` | 所属店舗と認可境界 |
+| `movement_area_id` | `uuid` | 不可 | `store_id` と組にした `table_movement_areas` への複合外部キー、`ON DELETE RESTRICT` | 両端に共通する移動可能エリア |
+| `location_a_id` | `uuid` | 不可 | `store_id`、`movement_area_id` と組にした `placement_locations` への複合外部キー、複合主キー | UUID順で小さい側の配置場所 |
+| `location_b_id` | `uuid` | 不可 | `store_id`、`movement_area_id` と組にした `placement_locations` への複合外部キー、複合主キー | UUID順で大きい側の配置場所 |
+
+- `PRIMARY KEY (location_a_id, location_b_id)` とし、独立した代理IDを持たせない。
+- `CHECK (location_a_id < location_b_id)` により、自己連結と逆順の行を拒否する。登録側も2つのUUIDを比較して小さい方をA、大きい方をBへ正規化する。
+- `(store_id, movement_area_id, location_a_id)` と `(store_id, movement_area_id, location_b_id)` から `placement_locations (store_id, movement_area_id, id)` への複合外部キーを設定し、両端の店舗・エリア一致を保証する。削除動作は `ON DELETE RESTRICT` とする。
+- UUID順は保存形式だけに使用し、画面表示、連結順、自動配置順には使用しない。候補の最終決定には配置場所の `display_order` を使用する。
+- 直接隣接だけを保存し、推移的な関係は追加しない。選択した配置場所と登録済み関係からなる部分グラフが連結していることをアプリケーションで確認する。
+- 新しい関係は有効な配置場所だけを対象とし、有効な固定テーブルが固定配置場所として使用する場所を含めない。MVPでは初期データ検証で保証し、将来管理APIを追加するときは対象エリア、両配置場所および固定テーブルを同じトランザクションで再取得して検証する。
+- 初期データは `A-01`–`A-02`から`A-05`–`A-06`までの5行と、`B-01`–`B-02`から`B-03`–`B-04`までの3行とする。固定席用の`F-01`、`F-02`、`X-01`から`X-03`は含めない。
+- MVPの初期関係は直線状とし、分岐・循環を使用しない。スキーマには次数または循環の制約を追加せず、複雑なレイアウトを導入するときに同時連結可能性と探索規則を見直す。
+- 席構成マスターと連結可能関係の管理CRUDはMVPへ含めない。将来変更機能を追加するときは過去配置の解釈、廃止、監査およびロックを再検討する。
+
 4つを分けるとテーブル数と結合は増えるが、40席規模では対象行が少なく、空席検索の性能上の問題になる可能性は低い。実在する什器と論理的な配置場所を分けることで、同じテーブルの時間帯別移動と過去の配置を表現できる。一方、エリア関係だけでは壁や通路を自動検証できないため、店舗が事前確認したマスター設定を正とし、恒久廃止、一時ブロック、連結制約およびPostgreSQL統合テストによって変更時の影響を制御する。
 
-テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md`、操作権限と影響警告は `docs/adr/0034-seat-resource-block-operations-and-warnings.md` を正とする。
+テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md`、操作権限と影響警告は `docs/adr/0034-seat-resource-block-operations-and-warnings.md`、連結可能関係は `docs/adr/0035-undirected-placement-location-connections.md` を正とする。
 
 ## 15. 次に設計する範囲
 

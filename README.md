@@ -44,6 +44,7 @@
 - [ADR-0032: 席構成マスターを廃止日時で無効化し参照後は物理削除しない](docs/adr/0032-retire-seat-masters-without-physical-deletion.md)
 - [ADR-0033: 席資源ブロックを対象選択付きの半開期間として保存する](docs/adr/0033-seat-resource-block-target-and-period.md)
 - [ADR-0034: 席資源ブロックは停止を広く許可し再開を責任者へ限定する](docs/adr/0034-seat-resource-block-operations-and-warnings.md)
+- [ADR-0035: 配置場所の連結可能関係を正規化した無向ペアで保存する](docs/adr/0035-undirected-placement-location-connections.md)
 - [MVP後の拡張案](docs/future_extensions.md)
 - [進捗と次の作業](docs/milestones.md)
 - [直近の詳細な作業](next-action.md)
