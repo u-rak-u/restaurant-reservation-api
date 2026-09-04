@@ -1301,7 +1301,7 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 - 物理テーブルや配置場所の恒久廃止は、故障、汚損、雨漏りまたは通路障害などの一時的な使用不能と混同しない。
 - 一時的な使用不能は物理テーブルまたは配置場所と期間を参照する別の席資源ブロックとして保存し、マスター行の有効状態を都度書き換えない。
 - MVPへブロック開始と解除の限定操作を含めるが、席構成マスターの作成、任意項目更新、恒久廃止および物理削除を行う汎用管理CRUDは含めない。
-- ブロック対象、時間範囲と重複制約はDB-23B、権限、理由、監査および既存席配置への警告はDB-23Cで確定する。ブロック期間と重なる新しい割り当てを拒否する具体的な競合制約はDB-30でも整合を確認する。
+- ブロック対象、時間範囲と重複制約はADR-0033、権限、理由、監査および既存席配置への警告はADR-0034を正とする。ブロック期間と重なる新しい割り当てを拒否する具体的な競合制約はDB-30でも整合を確認する。
 
 ### 14.8 `seat_resource_blocks` テーブル
 
@@ -1315,19 +1315,34 @@ MVPが単一フロアでも、店舗、フロア、移動可能エリア、物�
 | `placement_location_id` | `uuid` | 可 | `store_id` と組にした `placement_locations` への複合外部キー、`ON DELETE RESTRICT` | 置くテーブルに関係なく使用不能な配置場所 |
 | `starts_at` | `timestamp with time zone` | 不可 | 開始を含む | 使用不能期間の開始日時 |
 | `ends_at` | `timestamp with time zone` | 可 | NULLなら終了未定、値があれば `starts_at < ends_at` | 使用不能期間の終了日時 |
+| `block_reason` | `text` | 不可 | 前後空白を除いて1文字以上500文字以下 | 使用停止の理由 |
+| `created_by_staff_account_id` | `uuid` | 不可 | `store_id` と組にした `staff_accounts` への複合外部キー、`ON DELETE RESTRICT` | ブロック作成者 |
+| `created_at` | `timestamp with time zone` | 不可 | DBサーバー時刻、不変 | ブロック作成操作日時 |
+| `released_by_staff_account_id` | `uuid` | 可 | `store_id` と組にした `staff_accounts` への複合外部キー、`ON DELETE RESTRICT` | 手動解除者 |
+| `released_at` | `timestamp with time zone` | 可 | 値があれば `ends_at` と同じDBサーバー時刻 | 手動解除日時 |
+| `release_reason` | `text` | 可 | 手動解除時に1文字以上500文字以下 | 使用再開の確認理由 |
+| `cancelled_by_staff_account_id` | `uuid` | 可 | `store_id` と組にした `staff_accounts` への複合外部キー、`ON DELETE RESTRICT` | 予定開始前の取消者 |
+| `cancelled_at` | `timestamp with time zone` | 可 | 値があれば `cancelled_at < starts_at` | 予定ブロック取消日時 |
+| `cancellation_reason` | `text` | 可 | 取消時に1文字以上500文字以下 | 予定を取り消した理由 |
 
 - `CHECK ((physical_table_id IS NOT NULL) <> (placement_location_id IS NOT NULL))` により、物理テーブルまたは配置場所のどちらか一方だけを必須にする。対象種別列は持たない。
 - `(store_id, physical_table_id)` と `(store_id, placement_location_id)` の複合外部キーにより別店舗の対象を参照できないようにする。新規ブロックの処理では対象を再取得し、対象とその親マスターが恒久廃止済みでないことも確認する。
 - 使用不能期間は `tstzrange(starts_at, ends_at, '[)')` として比較する。終了時刻と次の利用開始時刻が同じ場合は重複させず、`ends_at IS NULL` は将来に上限のない期間として扱う。
-- `btree_gist` を有効にし、`physical_table_id IS NOT NULL` を条件とする物理テーブル用と、`placement_location_id IS NOT NULL` を条件とする配置場所用のGiST排他制約を設ける。同じ対象の期間重複を、並行書き込みを含めてDBで拒否する。
+- `btree_gist` を有効にし、`physical_table_id IS NOT NULL AND cancelled_at IS NULL` を条件とする物理テーブル用と、`placement_location_id IS NOT NULL AND cancelled_at IS NULL` を条件とする配置場所用のGiST排他制約を設ける。同じ対象の取消されていない期間重複を、並行書き込みを含めてDBで拒否する。
 - 物理テーブルと配置場所は異なる資源であるため、物理テーブルのブロックと配置場所のブロックが同じ期間に存在することは許可する。候補探索では選択する物理テーブルと配置場所の双方について重複ブロックがないことを要求する。
 - 終了日時が既に到来したブロックは、行を更新する定期処理なしで候補除外の対象外になる。終了未定のブロックは解除操作がDBサーバー時刻を `ends_at` へ設定するまで候補から除外する。
 - 終了済みブロックを通常操作で物理削除しない。席構成マスターの恒久廃止では現在または将来のブロックを先に解消し、過去の終了済みブロックからの参照は維持する。
-- 開始・解除権限、理由、監査、予定開始前の取消および既存席配置への警告はDB-23Cで確定する。ブロックと重なる新しい割り当てを拒否する具体的な制約とトランザクションはDB-30で確定する。
+- 作成時は `starts_at >= created_at` とする。同じ店舗の有効な通常スタッフは両者を同じDB時刻とした終了未定のブロックだけを作成でき、現在の当日運用責任者は即時ブロックへ終了予定を設定できる。`manager` または `admin` は即時または将来のブロックを作成できる。これらの権限確認にパスワード再認証は要求しない。
+- 手動解除の3列と開始前取消の3列は、それぞれ全NULLまたは全て値ありとし、同じ行で解除と取消を両立させない。解除では `starts_at < released_at` かつ `ends_at = released_at`、取消では `cancelled_at < starts_at` を要求する。通常スタッフは解除できず、現在の当日運用責任者、`manager` または `admin` が解除できる。予定開始前の取消は `manager` または `admin` だけに許可する。
+- 店舗、対象、開始日時、作成情報およびブロック理由は通常操作で変更しない。将来予定の変更は取消と新しいブロックの作成、開始済みブロックの終了は解除として履歴を残す。保存済み終了日時への自然到達は新しい操作ではないため、解除情報を作成しない。
+- 開始、解除、取消では対象、期間の変更前後、理由、操作者および操作日時を共通監査ログへ同じトランザクションで追記する。共通監査ログの具体的な形式はDB-40で確定する。
+- ブロックが既存の現在世代と重なっても作成を拒否せず、配置を自動変更しない。取消されていないブロックの期間と、資源を現在または将来確保している席配置計画の現在世代について、物理テーブルまたは配置場所の一致から警告を導出する。現在利用中・準備中は最優先の安全警告、将来の利用は「席再設定が必要」とする。
+- 警告専用の状態列を保存せず、競合しない新世代への配置変更、ブロックの解除・取消・期間終了、または対象利用が資源を確保しなくなった場合だけ関連データから解消を判定する。重なりが残る警告は手動で非表示にしない。
+- ブロックと重なる新しい割り当てを拒否する具体的な制約とトランザクションはDB-30、共通ロック順序はDB-46で確定する。
 
 4つを分けるとテーブル数と結合は増えるが、40席規模では対象行が少なく、空席検索の性能上の問題になる可能性は低い。実在する什器と論理的な配置場所を分けることで、同じテーブルの時間帯別移動と過去の配置を表現できる。一方、エリア関係だけでは壁や通路を自動検証できないため、店舗が事前確認したマスター設定を正とし、恒久廃止、一時ブロック、連結制約およびPostgreSQL統合テストによって変更時の影響を制御する。
 
-テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md` を正とする。
+テーブル境界は `docs/adr/0026-separate-floor-area-table-and-location.md`、コード、名称および表示順は `docs/adr/0027-seat-master-identifiers-and-order.md`、一時ブロックと恒久的なマスター状態の分離は `docs/adr/0028-separate-seat-resource-blocks.md`、物理テーブルの定員と固定配置場所は `docs/adr/0031-physical-table-capacity-and-fixed-location.md`、恒久廃止、変更および物理削除は `docs/adr/0032-retire-seat-masters-without-physical-deletion.md`、ブロック対象と期間制約は `docs/adr/0033-seat-resource-block-target-and-period.md`、操作権限と影響警告は `docs/adr/0034-seat-resource-block-operations-and-warnings.md` を正とする。
 
 ## 15. 次に設計する範囲
 
