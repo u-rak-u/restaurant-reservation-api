@@ -12,7 +12,7 @@
 - [x] 依存パッケージをインストールする
 - [x] pytestが成功することを確認する
 - [x] 開発サーバーを起動して `/health` の応答を確認する
-- [x] GitHubにPrivateリポジトリを作成し、`main`ブランチをpushする
+- [x] GitHubにリポジトリを作成し、`main`ブランチをpushする
 - [x] REVIEW-M1-01 最小FastAPI環境の変更範囲と、直接影響する設定・テストをフェーズレビューする
   - 2026-09-01に対象範囲を再レビューした。uv 0.12.8、Python 3.12.14、`pyproject.toml` と `uv.lock` による30パッケージの解決、27パッケージの同期、FastAPI 0.141.1、Starlette 1.6.0、`httpx2` 2.12.0およびpytest成功を確認した。旧依存ファイルと旧実行例を除去し、残る指摘はない。
 
@@ -24,7 +24,7 @@
 - [x] 名前付きボリュームでPostgreSQLのデータを永続化する
 - [x] ヘルスチェックが成功することを確認する
 - [x] `reservation_app`で`reservation_db`へSQL接続できることを確認する
-- [x] 基礎から同時実行対策までの学習用教科書を作成する
+- [x] 基礎から同時実行対策までの学習用教科書を作成し、学習計画側へ移管する
 - [ ] SQLAlchemy、Pydantic Settings、psycopgの依存関係を`pyproject.toml`へ追加し、`uv.lock`を更新する
 - [ ] SQLAlchemy 2.xのDB接続を作成する
 - [ ] Alembicを導入する

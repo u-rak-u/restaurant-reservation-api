@@ -1,86 +1,70 @@
-# 店舗予約管理システム
+# Restaurant Reservation API
 
-飲食店向けの店舗予約管理APIと、それを操作する顧客・スタッフ向けフロントエンドを、バックエンド設計を学びながら段階的に作るプロジェクトです。
+飲食店の通常予約、貸切予約、予約なし利用、席配置を一貫して扱う店舗予約管理システムです。FastAPIとPostgreSQLを用い、業務ルールをアプリケーションコードだけでなくデータベース制約やトランザクション設計でも守ることを目標に開発しています。
 
-## ドキュメント
+> [!IMPORTANT]
+> 現在はデータベース設計フェーズです。動作するAPIはヘルスチェックのみで、予約機能そのものはまだ実装していません。確定済みの仕様と未実装の範囲は分けて記載しています。
 
-- [バックエンド開発教科書](docs/backend-api-textbook.md)
-- [要件定義](docs/requirements.md)
-- [ドメインモデル](docs/domain_model.md)
-- [データベース設計](docs/database_design.md)
-- [通常予約規約の暫定案](docs/reservation_terms_draft.md)
-- [予約なし利用追加による要件影響の再確認](docs/walk_in_impact_review.md)
-- [ADR-0001: 席配置計画を世代付きで保存する](docs/adr/0001-seat-placement-plan-versioning.md)
-- [ADR-0002: 電話番号照合に鍵付きハッシュを使用する](docs/adr/0002-phone-number-matching.md)
-- [ADR-0003: 内部主キーにUUIDv7を使用する](docs/adr/0003-uuidv7-primary-keys.md)
-- [ADR-0004: DBMSにPostgreSQLを採用する](docs/adr/0004-adopt-postgresql.md)
-- [ADR-0005: PostgreSQL 18とDockerイメージの固定方針](docs/adr/0005-postgresql-version-and-image-pinning.md)
-- [ADR-0006: 店舗の識別・タイムゾーン・初期データ方針](docs/adr/0006-store-identity-timezone-and-bootstrap.md)
-- [ADR-0007: 共通予約と種別詳細を分割する](docs/adr/0007-reservation-subtype-tables.md)
-- [ADR-0008: 予約資格情報を分離して終了時に削除する](docs/adr/0008-reservation-credentials-lifecycle.md)
-- [ADR-0009: 共通予約の種別・状態・ライフサイクル日時](docs/adr/0009-reservation-common-columns.md)
-- [ADR-0010: 通常予約の人数・予約期間・顧客コメント](docs/adr/0010-regular-reservation-details.md)
-- [ADR-0011: 貸切予約のイベント時間・準備片付け時間・参加人数](docs/adr/0011-exclusive-reservation-details.md)
-- [ADR-0012: 通常予約の15分到着期限と席解放](docs/adr/0012-late-arrival-and-seat-release.md)
-- [ADR-0013: 通常予約の到着期限と遅延実行による席解放](docs/adr/0013-arrival-deadline-persistence.md)
-- [ADR-0014: 貸切範囲を種別と正規化した関連で表す](docs/adr/0014-exclusive-reservation-scope.md)
-- [ADR-0015: 予約番号を店舗単位の12桁とし3年後に解放する](docs/adr/0015-store-scoped-reservation-number.md)
-- [ADR-0016: 予約確認コードとQRトークンの保存・失効方式](docs/adr/0016-reservation-credential-hashing.md)
-- [ADR-0017: 無断キャンセル電話照合を予約従属テーブルへ分離する](docs/adr/0017-no-show-phone-match-table.md)
-- [ADR-0018: スタッフアカウントを店舗所属の個別アカウントとして管理する](docs/adr/0018-store-scoped-staff-accounts.md)
-- [ADR-0019: スタッフ認証情報・ログイン制限・セッションを分離する](docs/adr/0019-separate-staff-authentication-state.md)
-- [ADR-0020: 当日運用責任者を時間範囲の任命履歴として保存する](docs/adr/0020-duty-manager-assignment-period.md)
-- [ADR-0021: 当日運用責任者の交代手続きを任命と分離して保存する](docs/adr/0021-duty-manager-transition-workflows.md)
-- [ADR-0022: 予約なし利用を状態と操作日時を持つ独立した行として保存する](docs/adr/0022-walk-in-visit-state.md)
-- [ADR-0023: 予約なし利用の利用日時と席占有を分離して保存する](docs/adr/0023-walk-in-time-and-occupancy.md)
-- [ADR-0024: 予約なし利用の占有継続を利用系列で管理する](docs/adr/0024-walk-in-continuation-series.md)
-- [ADR-0025: 13名以上の予約なし利用は共通操作IDを監査記録へ保存する](docs/adr/0025-walk-in-batch-operation-id.md)
-- [ADR-0026: フロア・エリア・物理テーブル・配置場所を分離する](docs/adr/0026-separate-floor-area-table-and-location.md)
-- [ADR-0027: 席構成マスターのコード・名称・表示順を定める](docs/adr/0027-seat-master-identifiers-and-order.md)
-- [ADR-0028: 席資源の一時ブロックを恒久的なマスター状態と分離する](docs/adr/0028-separate-seat-resource-blocks.md)
-- [ADR-0029: 貸切の到着期限と明示的な資源解放](docs/adr/0029-exclusive-arrival-deadline.md)
-- [ADR-0030: 未解決来店案件の管理終結を基本状態と分離する](docs/adr/0030-separate-management-closure-from-status.md)
-- [ADR-0031: 物理テーブルの固定・可動を固定配置場所の有無で表す](docs/adr/0031-physical-table-capacity-and-fixed-location.md)
-- [ADR-0032: 席構成マスターを廃止日時で無効化し参照後は物理削除しない](docs/adr/0032-retire-seat-masters-without-physical-deletion.md)
-- [ADR-0033: 席資源ブロックを対象選択付きの半開期間として保存する](docs/adr/0033-seat-resource-block-target-and-period.md)
-- [ADR-0034: 席資源ブロックは停止を広く許可し再開を責任者へ限定する](docs/adr/0034-seat-resource-block-operations-and-warnings.md)
-- [ADR-0035: 配置場所の連結可能関係を正規化した無向ペアで保存する](docs/adr/0035-undirected-placement-location-connections.md)
-- [ADR-0036: 席配置計画は予約または個別の予約なし利用の一方だけを対象にする](docs/adr/0036-seat-placement-plan-exclusive-target.md)
-- [MVP後の拡張案](docs/future_extensions.md)
-- [進捗と次の作業](docs/milestones.md)
-- [直近の詳細な作業](next-action.md)
+## このプロジェクトで扱う課題
 
-基礎から予約重複の同時実行対策までを一冊にまとめています。完成コードを写すのではなく、別題材の例を店舗予約APIへ応用する形で進めます。学習用ドキュメントは確定仕様ではなく、今後作成する要件定義、設計文書、ADRを正式な判断基準とします。
+- 通常予約、貸切予約、予約なし利用で共通化すべき情報と固有情報の分離
+- 席の結合、移動、世代管理を含むテーブル配置モデル
+- PostgreSQLの制約、範囲型、ロックを利用した二重予約・競合対策
+- 顧客とスタッフで異なる認証・認可、資格情報の失効と保持期限
+- 到着遅延、無断キャンセル、臨時休業など現場で発生する例外状態の管理
+- 冪等性、監査、個人情報の削除を含む運用可能なAPI設計
 
-## 現在の実装範囲
+## 現在の到達点
 
-第1段階のFastAPI最小アプリとヘルスチェック、第2段階前半のDocker ComposeによるPostgreSQL環境まで完了しています。予約なし利用を含む要件定義とドメインモデルの確定が完了し、現在はデータベース設計を具体化する段階です。
+| 分類 | 状態 |
+| --- | --- |
+| 開発環境 | uvによる依存固定、Docker ComposeによるPostgreSQL 18環境を構築済み |
+| API実装 | `GET /health` と自動テストを実装済み |
+| 要件・ドメイン | MVPの要件、権限、状態遷移、主要な集約境界を確定済み |
+| データベース | テーブルと制約を段階的に設計中 |
+| 予約API・認証 | 未実装 |
+| フロントエンド | 未実装 |
 
-## 必要な環境
+詳細な進捗は[マイルストーン](docs/project/milestones.md)で管理しています。
 
-- Python 3.12以上の利用可能な安定版
+## 技術構成
+
+現在導入済み、または開発環境で使用している技術は次のとおりです。
+
+- Python 3.12
+- FastAPI / Pydantic / Uvicorn
+- PostgreSQL 18
+- Docker / Docker Compose
 - uv
-- Windows PowerShell
-- Docker Desktop
-- Docker Compose
+- pytest / httpx2
 
-使用するコマンドが見つからない場合は、uvやDockerをインストールした端末であることと、実行ファイルへPATHが通っていることを確認してください。開発端末と自動実行環境では、利用できるツールが異なる場合があります。
+SQLAlchemy 2.xとAlembicは後続のアプリケーション実装で導入予定であり、現時点では依存関係に含めていません。
 
 ## セットアップ
 
+前提として、uv、Docker Desktop、Docker Compose、Windows PowerShellを使用します。
+
 ```powershell
 uv python install 3.12
-uv sync
+uv sync --locked
 Copy-Item .env.example .env
 ```
 
-依存関係は `pyproject.toml` へ定義し、実際に解決したバージョンは `uv.lock` で固定します。通常は開発用依存を含む `uv sync` を使用し、ロックファイルを更新せずに環境を再現できることを厳密に確認するときは `uv sync --locked` を使用します。
+`.env`の`POSTGRES_PASSWORD`をローカル開発用の値へ変更してください。`.env`はGitの管理対象外です。
 
-作成した `.env` の `POSTGRES_PASSWORD` は、ローカル開発用の十分に推測されにくい値へ変更してください。`.env` はGitの管理対象外です。
+### APIの起動
 
-## PostgreSQLの起動
+```powershell
+uv run uvicorn app.main:app --reload
+```
 
-Docker Desktopを起動した状態で、Compose設定と必須環境変数を確認してからPostgreSQLを起動します。開発環境ではPostgreSQLとベースOSの系列を揃えるため、公式イメージの `postgres:18.4-trixie` を使用します。マイナー更新と本番環境でのダイジェスト固定方針は [ADR-0005](docs/adr/0005-postgresql-version-and-image-pinning.md) を参照してください。
+起動後に`http://127.0.0.1:8000/health`へアクセスすると、次のレスポンスを返します。
+
+```json
+{"status": "ok"}
+```
+
+### PostgreSQLの起動
 
 ```powershell
 docker compose config --quiet
@@ -89,22 +73,41 @@ docker compose ps
 .\scripts\test-db-connection.ps1
 ```
 
-データベースコンテナの状態が `healthy` になり、接続確認で `Database connection check: OK` と表示されることを確認してください。接続確認スクリプトは `.env` のパスワード、接続文字列、環境変数一覧を出力しません。Windows PowerShell 5でもBOMなしUTF-8のスクリプトを誤解析しないよう、スクリプト自身のメッセージはASCIIで出力します。
+接続確認スクリプトは、パスワードや接続文字列を出力せず成否だけを表示します。開発用イメージの固定方針は[ADR-0005](docs/adr/0005-postgresql-version-and-image-pinning.md)を参照してください。
 
-## 起動
-
-```powershell
-uv run uvicorn app.main:app --reload
-```
-
-起動後、`http://127.0.0.1:8000/health` にアクセスすると、次のレスポンスが返ります。
-
-```json
-{"status": "ok"}
-```
-
-## テスト
+### テスト
 
 ```powershell
 uv run python -m pytest
 ```
+
+## ドキュメント
+
+設計資料の読み方と全体一覧は[ドキュメント索引](docs/README.md)にまとめています。最初に確認する資料は次の4つです。
+
+- [要件定義](docs/requirements.md)
+- [ドメインモデル](docs/domain_model.md)
+- [データベース設計](docs/database_design.md)
+- [ADR一覧](docs/adr/README.md)
+
+設計上の主な判断例:
+
+- [PostgreSQLを採用した理由](docs/adr/0004-adopt-postgresql.md)
+- [共通予約と種別詳細を分割する理由](docs/adr/0007-reservation-subtype-tables.md)
+- [予約資格情報のハッシュ化と失効方式](docs/adr/0016-reservation-credential-hashing.md)
+- [席資源の期間重複を防ぐ制約](docs/adr/0033-seat-resource-block-target-and-period.md)
+- [席配置計画の対象を一意にする制約](docs/adr/0036-seat-placement-plan-exclusive-target.md)
+
+## ディレクトリ構成
+
+```text
+app/              FastAPIアプリケーション
+docs/             要件、設計、ADR、進捗資料
+scripts/          開発環境の確認スクリプト
+tests/            自動テスト
+compose.yaml      ローカルPostgreSQL環境
+pyproject.toml    依存関係とプロジェクト設定
+uv.lock           解決済み依存バージョン
+```
+
+顧客向け規約の草案は法務確認済みの利用規約ではありません。正式仕様と補助資料の区別は[ドキュメント索引](docs/README.md)を参照してください。

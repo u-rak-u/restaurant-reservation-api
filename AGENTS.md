@@ -59,7 +59,7 @@ FastAPIを使用したレストラン予約APIを、バックエンド開発と�
 - 重要な設計判断は、選択肢とトレードオフを説明し、ユーザーの承認を得てから確定する。
 - ユーザーの承認を得るまで、次の本格的なフェーズへ進まない。
 - 要件定義および設計フェーズでは、明示的な依頼がない限りアプリケーションコードを書かない。
-- 現在のフェーズと進捗は `docs/milestones.md` を正とし、このファイルには固定しない。
+- 現在のフェーズと進捗は `docs/project/milestones.md` を正とし、このファイルには固定しない。
 
 ### フロントエンドの進め方
 
@@ -220,7 +220,7 @@ FastAPIを使用したレストラン予約APIを、バックエンド開発と�
 - `reservation_concurrency.md`
 - `error_design.md`
 - `test_strategy.md`
-- `milestones.md`
+- `project/milestones.md`
 
 重要な設計判断は `docs/adr/` にADRとして記録する。ADRには次を含める。
 
